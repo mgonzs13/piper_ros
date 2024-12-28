@@ -11,7 +11,7 @@ find_package(ament_cmake REQUIRED)
 FetchContent_Declare(
   piper
   GIT_REPOSITORY https://github.com/rhasspy/piper.git
-  GIT_TAG 2024.11.14-2
+  GIT_TAG 2023.11.14-2
 )
 
 FetchContent_MakeAvailable(piper)
