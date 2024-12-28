@@ -1,0 +1,18 @@
+<map id="piper_ros::PiperNode" name="piper_ros::PiperNode">
+<area shape="rect" id="Node000001" title=" " alt="" coords="887,128,1028,154"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="560,5,760,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="776,22,821,32,864,49,891,66,915,87,949,126,945,129,911,91,888,70,861,54,819,38,775,28"/>
+<area shape="rect" id="Node000003" href="$structpiper__ros_1_1RunConfig.html" title=" " alt="" coords="590,128,730,154"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="745,138,886,138,886,144,745,144"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="226,92,304,118"/>
+<area shape="poly" id="edge6_Node000001_Node000004" title=" " alt="" coords="319,93,376,86,513,80,620,84,727,97,863,118,899,125,898,130,862,123,726,102,620,89,513,85,377,91,320,98"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="307,122,340,136,377,146,432,153,489,155,590,148,590,154,489,160,432,159,376,151,339,141,305,127"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="5,84,129,125"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="144,102,226,102,226,108,144,108"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="178,175,352,216"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="367,197,451,192,494,186,535,176,547,170,559,162,592,152,594,157,561,167,550,174,537,181,495,191,451,198,368,203"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="620,177,700,203"/>
+<area shape="poly" id="edge7_Node000001_Node000007" title=" " alt="" coords="715,181,862,159,897,152,898,157,863,164,716,186"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="567,227,753,268"/>
+<area shape="poly" id="edge8_Node000001_Node000008" title=" " alt="" coords="767,223,862,192,901,172,935,152,938,156,904,177,864,197,769,228"/>
+</map>
