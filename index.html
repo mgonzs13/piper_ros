@@ -111,7 +111,7 @@ Table of Contents</h1>
 </ol>
 <h1><a class="anchor" id="autotoc_md2"></a>
 Installation</h1>
-<p>To run <a class="el" href="namespacepiper__ros.html">piper_ros</a> follow the next commmands:</p>
+<p>To run <a class="el" href="namespacepiper__ros.html">piper_ros</a> follow the next commands:</p>
 <div class="fragment"><div class="line">cd ~/ros2_ws/src</div>
 <div class="line">git clone https://github.com/mgonzs13/audio_common.git</div>
 <div class="line">git clone https://github.com/mgonzs13/piper_ros.git</div>
@@ -128,7 +128,11 @@ Docker</h1>
 </div><!-- fragment --><h1><a class="anchor" id="autotoc_md4"></a>
 Usage</h1>
 <div class="fragment"><div class="line">ros2 launch piper_bringup piper.launch.py</div>
-</div><!-- fragment --><div class="fragment"><div class="line">ros2 action send_goal /piper/say audio_common_msgs/action/TTS &quot;{&#39;text&#39;: &#39;Hello World&#39;}&quot;</div>
+</div><!-- fragment --><div class="fragment"><div class="line">ros2 action send_goal /piper/say audio_common_msgs/action/TTS &quot;{&#39;text&#39;: &#39;Hello World from ros 2&#39;}&quot;</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md5"></a>
+Spanish Example</h2>
+<div class="fragment"><div class="line">ros2 launch piper_bringup piper.launch.py model_filename:=&quot;es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx&quot; config_filename:=&quot;es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx.json&quot;</div>
+</div><!-- fragment --><div class="fragment"><div class="line">ros2 action send_goal /piper/say audio_common_msgs/action/TTS &quot;{&#39;text&#39;: &#39;Hola Mundo desde ros 2&#39;}&quot;</div>
 </div><!-- fragment --> </div></div><!-- PageDoc -->
 <a href="doxygen_crawl.html"></a>
 </div><!-- contents -->
