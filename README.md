@@ -46,7 +46,7 @@ docker build -t piper_ros .
 Then, you can run the docker container:
 
 ```shell
-docker run -it --rm piper_ros
+docker run -it --rm --device /dev/snd piper_ros
 ```
 
 ## Usage
