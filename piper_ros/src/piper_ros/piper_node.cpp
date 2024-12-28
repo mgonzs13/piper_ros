@@ -283,6 +283,11 @@ void PiperNode::execute_callback(
     int min_size = std::min(this->chunk_, (int)(audio_buffer.size() - i));
     std::vector<int16_t> data(&audio_buffer[i], &audio_buffer[i + min_size]);
 
+    int pad_size = this->chunk_ - data.size();
+    if (pad_size >0){
+      data.insert(data.end(), pad_size, 0);
+    }
+
     if (!goal_handle->is_active()) {
       return;
     }
