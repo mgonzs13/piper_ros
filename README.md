@@ -56,7 +56,7 @@ ros2 launch piper_bringup piper.launch.py
 ```
 
 ```shell
-ros2 action send_goal /piper/say audio_common_msgs/action/TTS "{'text': 'Hello World from ros 2'}"
+ros2 action send_goal /say audio_common_msgs/action/TTS "{'text': 'Hello World from ros 2'}"
 ```
 
 ### Spanish Example
@@ -66,5 +66,5 @@ ros2 launch piper_bringup piper.launch.py model_filename:="es/es_ES/carlfm/x_low
 ```
 
 ```shell
-ros2 action send_goal /piper/say audio_common_msgs/action/TTS "{'text': 'Hola Mundo desde ros 2'}"
+ros2 action send_goal /say audio_common_msgs/action/TTS "{'text': 'Hola Mundo desde ros 2'}"
 ```

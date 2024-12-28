@@ -74,9 +74,8 @@ def generate_launch_description():
                 package="piper_ros",
                 executable="piper_node",
                 name="piper_node",
-                namespace="piper",
                 parameters=[params],
-                remappings=[("audio", "/audio/out")],
+                remappings=[("audio", "audio/out")],
             ),
         )
 
