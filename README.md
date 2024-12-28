@@ -23,7 +23,7 @@ This repository provides a set of ROS 2 packages to integrate [piper](https://gi
 
 ## Installation
 
-To run piper_ros follow the next commmands:
+To run piper_ros follow the next commands:
 
 ```shell
 cd ~/ros2_ws/src
@@ -56,5 +56,15 @@ ros2 launch piper_bringup piper.launch.py
 ```
 
 ```shell
-ros2 action send_goal /piper/say audio_common_msgs/action/TTS "{'text': 'Hello World'}"
+ros2 action send_goal /piper/say audio_common_msgs/action/TTS "{'text': 'Hello World from ros 2'}"
+```
+
+### Spanish Example
+
+```shell
+ros2 launch piper_bringup piper.launch.py model_filename:="es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx" config_filename:="es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx.json"
+```
+
+```shell
+ros2 action send_goal /piper/say audio_common_msgs/action/TTS "{'text': 'Hola Mundo desde ros 2'}"
 ```
