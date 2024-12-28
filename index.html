@@ -124,7 +124,7 @@ Docker</h1>
 <p>You can build the <a class="el" href="namespacepiper__ros.html">piper_ros</a> docker:</p>
 <div class="fragment"><div class="line">docker build -t piper_ros .</div>
 </div><!-- fragment --><p>Then, you can run the docker container:</p>
-<div class="fragment"><div class="line">docker run -it --rm piper_ros</div>
+<div class="fragment"><div class="line">docker run -it --rm --device /dev/snd piper_ros</div>
 </div><!-- fragment --><h1><a class="anchor" id="autotoc_md4"></a>
 Usage</h1>
 <div class="fragment"><div class="line">ros2 launch piper_bringup piper.launch.py</div>
