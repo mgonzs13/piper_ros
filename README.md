@@ -56,5 +56,5 @@ ros2 launch piper_bringup piper.launch.py
 ```
 
 ```shell
-ros2 action send_goal /say audio_common_msgs/action/TTS "{'text': 'Hello World'}
+ros2 action send_goal /piper/say audio_common_msgs/action/TTS "{'text': 'Hello World'}"
 ```
