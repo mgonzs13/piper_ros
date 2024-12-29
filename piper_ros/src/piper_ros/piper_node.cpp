@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 #include <algorithm>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -272,15 +273,27 @@ void PiperNode::run_next_goal() {
 void PiperNode::execute_callback(
     const std::shared_ptr<GoalHandleTTS> goal_handle) {
 
-  auto result = std::make_shared<TTS::Result>();
   const auto goal = goal_handle->get_goal();
   std::string text = goal->text;
+
+  auto result = std::make_shared<TTS::Result>();
+  result->text = text;
 
   // Create audio
   piper::SynthesisResult piper_result;
   std::vector<int16_t> audio_buffer;
-  textToAudio(this->piper_config, this->voice, text, audio_buffer, piper_result,
-              NULL);
+
+  try {
+    textToAudio(this->piper_config, this->voice, text, audio_buffer,
+                piper_result, NULL);
+
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(this->get_logger(), "Error while generating audio: %s",
+                 e.what());
+    this->run_next_goal();
+    goal_handle->abort(result);
+    return;
+  }
 
   // Create rate
   std::unique_lock<std::mutex> lock(this->pub_lock_);
@@ -309,10 +322,6 @@ void PiperNode::execute_callback(
       data.insert(data.end(), pad_size, 0);
     }
 
-    if (!goal_handle->is_active()) {
-      return;
-    }
-
     if (goal_handle->is_canceling()) {
       goal_handle->canceled(result);
       return;
@@ -330,6 +339,5 @@ void PiperNode::execute_callback(
     this->pub_rate->sleep();
   }
 
-  result->text = text;
   goal_handle->succeed(result);
 }
