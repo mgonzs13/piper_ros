@@ -28,6 +28,8 @@
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 
 #include <map>
+#include <memory>
+#include <queue>
 #include <string>
 
 #include "audio_common_msgs/action/tts.hpp"
@@ -98,11 +100,20 @@ protected:
 private:
   int chunk_;
   std::string frame_id_;
+
+  // queue
+  std::queue<std::shared_ptr<GoalHandleTTS>> goal_queue_;
+  std::recursive_mutex goal_queue_lock_;
+  std::shared_ptr<GoalHandleTTS> current_goal_handle_;
+
+  // audio pub
+  std::mutex pub_lock_;
+  std::unique_ptr<rclcpp::Rate> pub_rate;
   rclcpp::Publisher<audio_common_msgs::msg::AudioStamped>::SharedPtr
       player_pub_;
+
+  // action server
   rclcpp_action::Server<TTS>::SharedPtr action_server_;
-  std::mutex goal_lock_;
-  std::shared_ptr<GoalHandleTTS> goal_handle_;
 
   rclcpp_action::GoalResponse
   handle_goal(const rclcpp_action::GoalUUID &uuid,
@@ -111,6 +122,7 @@ private:
   handle_cancel(const std::shared_ptr<GoalHandleTTS> goal_handle);
   void handle_accepted(const std::shared_ptr<GoalHandleTTS> goal_handle);
   void execute_callback(const std::shared_ptr<GoalHandleTTS> goal_handle);
+  void run_next_goal();
 };
 } // namespace piper_ros
 

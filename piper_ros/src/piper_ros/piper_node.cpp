@@ -38,7 +38,8 @@ using namespace piper_ros;
 using std::placeholders::_1;
 using std::placeholders::_2;
 
-PiperNode::PiperNode() : rclcpp_lifecycle::LifecycleNode("piper_node") {
+PiperNode::PiperNode()
+    : rclcpp_lifecycle::LifecycleNode("piper_node"), pub_rate(nullptr) {
 
   this->declare_parameter<int>("chunk", 512);
   this->declare_parameter<std::string>("frame_id", "");
@@ -243,15 +244,29 @@ PiperNode::handle_cancel(const std::shared_ptr<GoalHandleTTS> goal_handle) {
 
 void PiperNode::handle_accepted(
     const std::shared_ptr<GoalHandleTTS> goal_handle) {
-  std::unique_lock<std::mutex> lock(this->goal_lock_);
-  if (this->goal_handle_ != nullptr && this->goal_handle_->is_active()) {
-    auto result = std::make_shared<TTS::Result>();
-    this->goal_handle_->abort(result);
-    this->goal_handle_ = goal_handle;
-  }
 
-  std::thread{std::bind(&PiperNode::execute_callback, this, _1), goal_handle}
-      .detach();
+  std::lock_guard<std::recursive_mutex> lock(this->goal_queue_lock_);
+  this->goal_queue_.push(goal_handle);
+
+  if (this->current_goal_handle_ == nullptr ||
+      !this->current_goal_handle_->is_active()) {
+    this->run_next_goal();
+  }
+}
+
+void PiperNode::run_next_goal() {
+  std::lock_guard<std::recursive_mutex> lock(this->goal_queue_lock_);
+
+  if (!this->goal_queue_.empty()) {
+    this->current_goal_handle_ = this->goal_queue_.front();
+    this->goal_queue_.pop();
+    std::thread{std::bind(&PiperNode::execute_callback, this, _1),
+                this->current_goal_handle_}
+        .detach();
+
+  } else {
+    this->current_goal_handle_ = nullptr;
+  }
 }
 
 void PiperNode::execute_callback(
@@ -268,16 +283,22 @@ void PiperNode::execute_callback(
               NULL);
 
   // Create rate
-  std::chrono::nanoseconds period(
-      (int)(1e9 * this->chunk_ / this->voice.synthesisConfig.sampleRate));
-  rclcpp::Rate pub_rate(period);
-  std::vector<float> data(this->chunk_);
+  std::unique_lock<std::mutex> lock(this->pub_lock_);
+  this->run_next_goal();
+
+  if (this->pub_rate == nullptr) {
+    std::chrono::nanoseconds period(
+        (int)(1e9 * this->chunk_ / this->voice.synthesisConfig.sampleRate));
+    this->pub_rate = std::make_unique<rclcpp::Rate>(period);
+  }
 
   // Initialize the audio message
   audio_common_msgs::msg::AudioStamped msg;
   msg.header.frame_id = this->frame_id_;
 
   // Publish the audio data in chunks
+  std::vector<float> data(this->chunk_);
+
   for (size_t i = 0; i < audio_buffer.size(); i += this->chunk_) {
 
     int min_size = std::min(this->chunk_, (int)(audio_buffer.size() - i));
@@ -306,7 +327,7 @@ void PiperNode::execute_callback(
     msg.audio.info.rate = this->voice.synthesisConfig.sampleRate;
 
     this->player_pub_->publish(msg);
-    pub_rate.sleep();
+    this->pub_rate->sleep();
   }
 
   result->text = text;
