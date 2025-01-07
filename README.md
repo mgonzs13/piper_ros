@@ -62,7 +62,7 @@ ros2 action send_goal /say audio_common_msgs/action/TTS "{'text': 'Hello World f
 ### Spanish Example
 
 ```shell
-ros2 launch piper_bringup piper.launch.py model_filename:="es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx" config_filename:="es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx.json"
+ros2 launch piper_bringup piper.launch.py model_filename:="es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx"
 ```
 
 ```shell

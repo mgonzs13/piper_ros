@@ -44,6 +44,8 @@ def generate_launch_description():
             )
 
         if not config_path:
+            if not config:
+                config = f"{model}.json"
             config_path = hf_hub_download(
                 repo_id=repo, filename=config, force_download=False
             )
@@ -93,7 +95,7 @@ def generate_launch_description():
     config_filename = LaunchConfiguration("config_filename")
     config_filename_cmd = DeclareLaunchArgument(
         "config_filename",
-        default_value="en/en_US/lessac/low/en_US-lessac-low.onnx.json",
+        default_value="",
         description="Hugging Face config filename for piper",
     )
 
