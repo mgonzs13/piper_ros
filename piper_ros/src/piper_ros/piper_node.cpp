@@ -335,7 +335,11 @@ void PiperNode::execute_callback(
     msg.audio.info.format = 8;
     msg.audio.info.rate = this->voice.synthesisConfig.sampleRate;
 
+    auto feedback = std::make_shared<TTS::Feedback>();
+    feedback->audio = msg;
+
     this->player_pub_->publish(msg);
+    goal_handle->publish_feedback(feedback);
     this->pub_rate->sleep();
   }
 
