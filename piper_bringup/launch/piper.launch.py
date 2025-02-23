@@ -137,7 +137,6 @@ def generate_launch_description():
                 namespace="audio",
                 parameters=[
                     {
-                        "format": LaunchConfiguration("format", default=8),
                         "channels": LaunchConfiguration("channels", default=2),
                     }
                 ],
