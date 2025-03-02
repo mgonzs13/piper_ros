@@ -29,7 +29,6 @@ To run piper_ros follow the next commands:
 cd ~/ros2_ws/src
 git clone https://github.com/mgonzs13/audio_common.git
 git clone https://github.com/mgonzs13/piper_ros.git
-pip3 install -r piper_ros/requirements.txt
 cd ~/ros2_ws
 rosdep install --from-paths src --ignore-src -r -y
 colcon build

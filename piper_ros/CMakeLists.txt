@@ -13,6 +13,7 @@ find_package(rclcpp_lifecycle REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(audio_common_msgs REQUIRED)
 find_package(piper_vendor REQUIRED)
+find_package(piper_hfhub_vendor REQUIRED)
 
 include_directories(include)
 
@@ -28,6 +29,7 @@ ament_target_dependencies(piper_node
   audio_common_msgs
   ament_index_cpp
   piper_vendor
+  piper_hfhub_vendor
 )
 
 # Export dependencies

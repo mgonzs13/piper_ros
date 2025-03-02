@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 #include <algorithm>
+#include <regex>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -32,6 +33,7 @@
 
 #include "audio_common_msgs/action/tts.hpp"
 #include "audio_common_msgs/msg/audio_stamped.hpp"
+#include "huggingface_hub.h"
 
 #include "piper_ros/piper_node.hpp"
 
@@ -44,8 +46,14 @@ PiperNode::PiperNode()
 
   this->declare_parameter<int>("chunk", 512);
   this->declare_parameter<std::string>("frame_id", "");
+
+  this->declare_parameter<std::string>("model_repo", "");
+  this->declare_parameter<std::string>("model_filename", "");
   this->declare_parameter<std::string>("model_path", "");
+  this->declare_parameter<std::string>("model_config_path_repo", "");
+  this->declare_parameter<std::string>("model_config_path_filename", "");
   this->declare_parameter<std::string>("model_config_path", "");
+
   this->declare_parameter<long int>("speaker_id", 0);
   this->declare_parameter<float>("noise_scale", 0.667f);
   this->declare_parameter<float>("length_scale", 1.0f);
@@ -65,8 +73,53 @@ PiperNode::PiperNode()
       "/libtashkeel_model.ort";
 }
 
+std::string hf_hub_download(const std::string &repo_id,
+                            const std::string &filename) {
+
+  auto result = huggingface_hub::hf_hub_download(repo_id, filename);
+
+  if (!result.success) {
+    fprintf(stderr, "Failed to download file '%s' from repo '%s'\n",
+            filename.c_str(), repo_id.c_str());
+    return "";
+  }
+
+  return result.path;
+}
+
+std::string download_model(const std::string &repo, const std::string &file) {
+  std::regex pattern(R"(-([0-9]+)-of-([0-9]+)\.gguf)");
+  std::smatch match;
+
+  if (std::regex_search(file, match, pattern)) {
+    int total_shards = std::stoi(match[2]);
+    std::string base_name = file.substr(0, match.position(0));
+
+    // Download shards
+    for (int i = 1; i <= total_shards; ++i) {
+      char shard_file[256];
+      snprintf(shard_file, sizeof(shard_file), "%s-%05d-of-%05d.gguf",
+               base_name.c_str(), i, total_shards);
+      hf_hub_download(repo, shard_file);
+    }
+
+    // Return first shard
+    char first_shard[256];
+    snprintf(first_shard, sizeof(first_shard), "%s-00001-of-%05d.gguf",
+             base_name.c_str(), total_shards);
+    return hf_hub_download(repo, first_shard);
+  }
+
+  return hf_hub_download(repo, file);
+}
+
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 PiperNode::on_configure(const rclcpp_lifecycle::State &) {
+
+  std::string model_repo;
+  std::string model_filename;
+  std::string model_config_repo;
+  std::string model_config_filename;
 
   std::vector<long int> silence_phonemes;
   std::vector<double> silence_seconds;
@@ -76,7 +129,11 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
   this->get_parameter("chunk", this->chunk_);
   this->get_parameter("frame_id", this->frame_id_);
 
+  this->get_parameter("model_repo", model_repo);
+  this->get_parameter("model_filename", model_filename);
   this->get_parameter("model_path", this->run_config.model_path);
+  this->get_parameter("model_config_repo", model_config_repo);
+  this->get_parameter("model_config_filename", model_config_filename);
   this->get_parameter("model_config_path", this->run_config.model_config_path);
 
   this->get_parameter("speaker_id", this->run_config.speaker_id);
@@ -88,6 +145,25 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
 
   this->get_parameter("silence_phonemes", silence_phonemes);
   this->get_parameter("silence_seconds", silence_seconds);
+
+  // download model
+  if (this->run_config.model_path.empty()) {
+    this->run_config.model_path = download_model(model_repo, model_filename);
+  }
+
+  if (this->run_config.model_config_path.empty()) {
+
+    if (model_config_filename.empty() || model_config_repo.empty()) {
+      model_config_repo = model_repo;
+    }
+
+    if (model_config_filename.empty()) {
+      model_config_filename = model_filename + ".json";
+    }
+
+    this->run_config.model_config_path =
+        download_model(model_config_repo, model_config_filename);
+  }
 
   if (silence_phonemes.size() != silence_seconds.size()) {
     RCLCPP_ERROR(this->get_logger(),

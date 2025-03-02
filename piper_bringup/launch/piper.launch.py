@@ -22,113 +22,47 @@
 
 
 from launch_ros.actions import Node
+from launch import LaunchDescription
 from launch.conditions import IfCondition
-from launch import LaunchDescription, LaunchContext
-from launch.actions import OpaqueFunction, DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PythonExpression
-from huggingface_hub import hf_hub_download
 
 
 def generate_launch_description():
 
-    def run_piper(context: LaunchContext, repo, model, config, model_path, config_path):
-        repo = str(context.perform_substitution(repo))
-        model = str(context.perform_substitution(model))
-        config = str(context.perform_substitution(config))
-        model_path = str(context.perform_substitution(model_path))
-        config_path = str(context.perform_substitution(config_path))
+    params = {
+        "chunk": LaunchConfiguration("chunk", default=512),
+        "frame_id": LaunchConfiguration("frame_id", default=""),
+        "model_repo": LaunchConfiguration("model_repo", default="rhasspy/piper-voices"),
+        "model_filename": LaunchConfiguration(
+            "model_filename", default="en/en_US/lessac/low/en_US-lessac-low.onnx"
+        ),
+        "model_path": LaunchConfiguration("model", default=""),
+        "model_config_repo": LaunchConfiguration(
+            "model_config_repo", default="rhasspy/piper-voices"
+        ),
+        "model_config_filename": LaunchConfiguration(
+            "model_config_filename", default="rhasspy/piper-voices"
+        ),
+        "model_config_path": LaunchConfiguration("model_config_path", default=""),
+        "speaker_id": LaunchConfiguration("speaker_id", default="0"),
+        "noise_scale": LaunchConfiguration("noise_scale", default=0.667),
+        "length_scale": LaunchConfiguration("length_scale", default=1.0),
+        "noise_w": LaunchConfiguration("noise_w", default=0.8),
+        "sentence_silence_seconds": LaunchConfiguration(
+            "sentence_silence_seconds", default=0.2
+        ),
+        "silence_phonemes": LaunchConfiguration("silence_phonemes", default="[0]"),
+        "silence_seconds": LaunchConfiguration("silence_seconds", default="[0.0]"),
+    }
 
-        if not model_path:
-            model_path = hf_hub_download(
-                repo_id=repo, filename=model, force_download=False
-            )
-
-        if not config_path:
-            if not config:
-                config = f"{model}.json"
-            config_path = hf_hub_download(
-                repo_id=repo, filename=config, force_download=False
-            )
-
-        params = {
-            "chunk": LaunchConfiguration("chunk", default=512),
-            "frame_id": LaunchConfiguration("frame_id", default=""),
-            "model_path": LaunchConfiguration("model", default=model_path),
-            "model_config_path": LaunchConfiguration(
-                "model_config_path", default=config_path
-            ),
-            "speaker_id": LaunchConfiguration("speaker_id", default="0"),
-            "noise_scale": LaunchConfiguration("noise_scale", default=0.667),
-            "length_scale": LaunchConfiguration("length_scale", default=1.0),
-            "noise_w": LaunchConfiguration("noise_w", default=0.8),
-            "sentence_silence_seconds": LaunchConfiguration(
-                "sentence_silence_seconds", default=0.2
-            ),
-            "silence_phonemes": LaunchConfiguration("silence_phonemes", default="[0]"),
-            "silence_seconds": LaunchConfiguration("silence_seconds", default="[0.0]"),
-        }
-
-        return (
+    return LaunchDescription(
+        [
             Node(
                 package="piper_ros",
                 executable="piper_node",
                 name="piper_node",
                 parameters=[params],
                 remappings=[("audio", "audio/out")],
-            ),
-        )
-
-    model_repo = LaunchConfiguration("model_repo")
-    model_repo_cmd = DeclareLaunchArgument(
-        "model_repo",
-        default_value="rhasspy/piper-voices",
-        description="Hugging Face model repo for piper",
-    )
-
-    model_filename = LaunchConfiguration("model_filename")
-    model_filename_cmd = DeclareLaunchArgument(
-        "model_filename",
-        default_value="en/en_US/lessac/low/en_US-lessac-low.onnx",
-        description="Hugging Face model filename for piper",
-    )
-
-    config_filename = LaunchConfiguration("config_filename")
-    config_filename_cmd = DeclareLaunchArgument(
-        "config_filename",
-        default_value="",
-        description="Hugging Face config filename for piper",
-    )
-
-    model_path = LaunchConfiguration("model_path")
-    model_path_cmd = DeclareLaunchArgument(
-        "model_path",
-        default_value="",
-        description="Local path to the model file for piper",
-    )
-
-    config_path = LaunchConfiguration("config_path")
-    config_path_cmd = DeclareLaunchArgument(
-        "config_path",
-        default_value="",
-        description="Local path to the config file for piper",
-    )
-
-    return LaunchDescription(
-        [
-            model_repo_cmd,
-            model_filename_cmd,
-            config_filename_cmd,
-            model_path_cmd,
-            config_path_cmd,
-            OpaqueFunction(
-                function=run_piper,
-                args=[
-                    model_repo,
-                    model_filename,
-                    config_filename,
-                    model_path,
-                    config_path,
-                ],
             ),
             Node(
                 package="audio_common",
