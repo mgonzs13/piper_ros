@@ -32,11 +32,11 @@ def generate_launch_description():
     params = {
         "chunk": LaunchConfiguration("chunk", default=512),
         "frame_id": LaunchConfiguration("frame_id", default=""),
+        "model_path": LaunchConfiguration("model_path", default=""),
         "model_repo": LaunchConfiguration("model_repo", default="rhasspy/piper-voices"),
         "model_filename": LaunchConfiguration(
             "model_filename", default="en/en_US/lessac/low/en_US-lessac-low.onnx"
         ),
-        "model_path": LaunchConfiguration("model", default=""),
         "model_config_repo": LaunchConfiguration(
             "model_config_repo", default="rhasspy/piper-voices"
         ),
