@@ -1,6 +1,6 @@
 # piper_ros
 
-This repository provides a set of ROS 2 packages to integrate [piper](https://github.com/rhasspy/piper) TTS (Text-to-Speech) into ROS 2 using [audio_common](https://github.com/mgonzs13/audio_common) [4.0.4](https://github.com/mgonzs13/audio_common/releases/tag/4.0.4).
+This repository provides a set of ROS 2 packages to integrate [piper](https://github.com/rhasspy/piper) TTS (Text-to-Speech) into ROS 2 using [audio_common](https://github.com/mgonzs13/audio_common) [4.0.5](https://github.com/mgonzs13/audio_common/releases/tag/4.0.5).
 
 <div align="center">
 
