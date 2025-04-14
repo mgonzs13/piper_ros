@@ -49,8 +49,8 @@ PiperNode::PiperNode()
   this->declare_parameter<std::string>("model_repo", "");
   this->declare_parameter<std::string>("model_filename", "");
   this->declare_parameter<std::string>("model_path", "");
-  this->declare_parameter<std::string>("model_config_path_repo", "");
-  this->declare_parameter<std::string>("model_config_path_filename", "");
+  this->declare_parameter<std::string>("model_config_repo", "");
+  this->declare_parameter<std::string>("model_config_filename", "");
   this->declare_parameter<std::string>("model_config_path", "");
 
   this->declare_parameter<long int>("speaker_id", 0);
@@ -128,7 +128,7 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
 
   if (this->run_config.model_config_path.empty()) {
 
-    if (model_config_filename.empty() || model_config_repo.empty()) {
+    if (model_config_repo.empty()) {
       model_config_repo = model_repo;
     }
 

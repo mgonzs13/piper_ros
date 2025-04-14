@@ -41,7 +41,8 @@ def generate_launch_description():
             "model_config_repo", default="rhasspy/piper-voices"
         ),
         "model_config_filename": LaunchConfiguration(
-            "model_config_filename", default="rhasspy/piper-voices"
+            "model_config_filename",
+            default="en/en_US/lessac/low/en_US-lessac-low.onnx.json",
         ),
         "model_config_path": LaunchConfiguration("model_config_path", default=""),
         "speaker_id": LaunchConfiguration("speaker_id", default="0"),
