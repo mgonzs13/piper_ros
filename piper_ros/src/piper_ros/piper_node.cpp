@@ -79,7 +79,7 @@ std::string download_model(const std::string &repo_id,
     return "";
   }
 
-  auto result = huggingface_hub::hf_hub_download_with_shards(repo_id, filename);
+  auto result = huggingface_hub::hf_hub_download(repo_id, filename);
 
   if (result.success) {
     return result.path;
