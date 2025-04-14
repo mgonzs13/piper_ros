@@ -8,8 +8,8 @@ find_package(CURL REQUIRED)  # Add CURL as a required package
 # Declare hfhub from Git repository
 FetchContent_Declare(
   hfhub
-  GIT_REPOSITORY https://github.com/mgonzs13/huggingface-hub-cpp
-  GIT_TAG        main
+  GIT_REPOSITORY https://github.com/agonzc34/huggingface-hub-cpp
+  GIT_TAG        1.1.2
   GIT_SHALLOW    TRUE
 )
 
