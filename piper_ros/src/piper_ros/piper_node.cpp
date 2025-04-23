@@ -121,7 +121,7 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
   this->get_parameter("silence_phonemes", silence_phonemes);
   this->get_parameter("silence_seconds", silence_seconds);
 
-  // download model
+  // Download model
   if (this->run_config.model_path.empty()) {
     this->run_config.model_path = download_model(model_repo, model_filename);
   }
@@ -163,10 +163,10 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 PiperNode::on_activate(const rclcpp_lifecycle::State &) {
 
   RCLCPP_INFO(get_logger(), "[%s] Activating...", this->get_name());
-
   RCLCPP_INFO(get_logger(), "Loading voice from %s (config=%s)",
               this->run_config.model_path.c_str(),
               this->run_config.model_config_path.c_str());
+
   std::optional<long int> temp_speaker_id = this->run_config.speaker_id;
   loadVoice(this->piper_config, this->run_config.model_path,
             this->run_config.model_config_path, this->voice, temp_speaker_id);
@@ -200,15 +200,15 @@ PiperNode::on_activate(const rclcpp_lifecycle::State &) {
   }
 
   if (this->run_config.noise_w) {
-    voice.synthesisConfig.noiseW = this->run_config.noise_w;
+    this->voice.synthesisConfig.noiseW = this->run_config.noise_w;
   }
 
   if (this->run_config.sentence_silence_seconds) {
-    voice.synthesisConfig.sentenceSilenceSeconds =
+    this->voice.synthesisConfig.sentenceSilenceSeconds =
         this->run_config.sentence_silence_seconds;
   }
 
-  // if phonemeSilenceSeconds
+  // If phonemeSilenceSeconds
   if (this->run_config.phoneme_silence_seconds.size()) {
     if (!this->voice.synthesisConfig.phonemeSilenceSeconds) {
       // Overwrite
