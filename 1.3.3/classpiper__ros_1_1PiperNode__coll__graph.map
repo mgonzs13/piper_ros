@@ -1,0 +1,25 @@
+<map id="piper_ros::PiperNode" name="piper_ros::PiperNode">
+<area shape="rect" id="Node000001" title="ROS 2 Lifecycle Node for managing the Piper TTS system." alt="" coords="926,245,1067,271"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="571,5,771,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="786,10,847,22,877,33,903,49,926,71,945,96,973,152,989,205,996,244,991,245,983,206,968,154,941,99,922,74,900,54,874,38,846,27,785,16"/>
+<area shape="rect" id="Node000003" href="$structpiper__ros_1_1RunConfig.html" title="Configuration structure for running the Piper TTS system." alt="" coords="601,175,741,200"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="756,192,828,202,902,218,968,242,966,247,901,223,827,208,756,197"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="232,92,309,118"/>
+<area shape="poly" id="edge6_Node000001_Node000004" title=" " alt="" coords="324,93,428,83,488,82,548,86,651,98,731,111,809,134,903,177,950,210,985,243,981,247,947,214,900,182,807,139,730,116,650,104,547,91,488,87,428,89,325,99"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="316,121,388,146,500,168,601,180,601,185,499,173,387,151,314,127"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="5,84,129,125"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="144,102,231,102,231,108,144,108"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="184,175,358,216"/>
+<area shape="poly" id="edge5_Node000003_Node000006" title=" " alt="" coords="373,194,547,192,601,189,601,195,547,197,373,199"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="586,287,756,328"/>
+<area shape="poly" id="edge7_Node000001_Node000007" title=" " alt="" coords="771,290,901,271,925,267,926,272,902,276,772,296"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="178,247,363,288"/>
+<area shape="poly" id="edge10_Node000001_Node000008" title=" " alt="" coords="379,257,387,257,687,252,925,254,925,259,687,257,387,262,379,262"/>
+<area shape="poly" id="edge8_Node000007_Node000008" title=" " alt="" coords="379,276,586,296,586,302,378,281"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="601,352,741,378"/>
+<area shape="poly" id="edge9_Node000001_Node000009" title=" " alt="" coords="755,347,827,330,901,307,940,288,973,269,976,274,942,293,903,312,829,336,757,353"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="631,401,711,427"/>
+<area shape="poly" id="edge11_Node000001_Node000010" title=" " alt="" coords="726,408,811,393,857,379,900,359,928,339,951,314,985,270,989,273,955,318,931,343,903,363,859,384,813,399,727,413"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="595,451,747,492"/>
+<area shape="poly" id="edge12_Node000001_Node000011" title=" " alt="" coords="762,465,833,450,868,437,900,418,935,383,960,342,978,301,989,271,994,272,983,303,965,344,939,386,903,422,871,441,835,455,763,471"/>
+</map>

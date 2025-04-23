@@ -1,0 +1,5 @@
+<map id="piper_ros::PiperNode" name="piper_ros::PiperNode">
+<area shape="rect" id="Node000001" title="ROS 2 Lifecycle Node for managing the Piper TTS system." alt="" coords="34,79,176,105"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,5,205,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="108,46,108,79,102,79,102,46"/>
+</map>
