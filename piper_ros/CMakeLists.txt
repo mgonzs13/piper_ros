@@ -22,14 +22,14 @@ add_executable(piper_node
   src/piper_main.cpp
   src/piper_ros/piper_node.cpp
 )
-ament_target_dependencies(piper_node
-  rclcpp
-  rclcpp_action
-  rclcpp_lifecycle
-  audio_common_msgs
-  ament_index_cpp
-  piper_vendor
-  piper_hfhub_vendor
+target_link_libraries(piper_node
+  rclcpp::rclcpp
+  rclcpp_action::rclcpp_action
+  rclcpp_lifecycle::rclcpp_lifecycle
+  ament_index_cpp::ament_index_cpp
+  piper_hfhub_vendor::hfhub
+  piper_vendor::piper_lib
+  ${audio_common_msgs_TARGETS}
 )
 
 # Export dependencies
