@@ -40,11 +40,12 @@ add_dependencies(piper_lib
 
 # Tell CMake that anything linking against piper_lib also needs to link the
 # underlying libraries: fmt, spdlog, espeak-ng, piper_phonemize, onnxruntime.
-# By making these PUBLIC, downstream targets will “see” those link-flags automatically.
+# By making these PUBLIC, downstream targets will "see" those link-flags automatically.
 target_link_libraries(piper_lib
-  PUBLIC
+  PRIVATE
     fmt
     spdlog
+  PUBLIC
     ${piper_BINARY_DIR}/pi/lib/libespeak-ng.so
     ${piper_BINARY_DIR}/pi/lib/libpiper_phonemize.so
     ${piper_BINARY_DIR}/pi/lib/libonnxruntime.so
@@ -109,14 +110,17 @@ install(
 install(
   DIRECTORY ${PI_PIPER_LIB_DIR}/
   DESTINATION lib
+  FILES_MATCHING PATTERN "*.so*"
 )
 install(
   DIRECTORY ${FI_PIPER_LIB_DIR}/
   DESTINATION lib
+  FILES_MATCHING PATTERN "*.so*"
 )
 install(
   DIRECTORY ${SI_PIPER_LIB_DIR}/
   DESTINATION lib
+  FILES_MATCHING PATTERN "*.so*"
 )
 
 # Install our wrapper static library
