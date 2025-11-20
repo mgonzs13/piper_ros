@@ -1,0 +1,9 @@
+<map id="piper_ros::RunConfig" name="piper_ros::RunConfig">
+<area shape="rect" id="Node000001" title="Configuration structure for running the Piper TTS system." alt="" coords="73,244,213,270"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="28,103,106,128"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="63,144,60,182,63,201,70,219,83,232,99,241,96,246,79,236,66,221,57,202,54,182,57,144"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="5,5,129,46"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="70,62,70,102,64,102,64,62"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="133,95,308,136"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="219,152,210,187,193,222,167,245,163,242,189,218,205,185,214,151"/>
+</map>
