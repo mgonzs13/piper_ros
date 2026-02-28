@@ -72,7 +72,7 @@ public:
   /**
    * @brief Destructor. Frees piper synthesizer resources if still active.
    */
-  ~PiperNode();
+  ~PiperNode() override;
 
   /**
    * @brief Callback for configuring the node.
@@ -84,7 +84,7 @@ public:
    * @return SUCCESS on successful configuration.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_configure(const rclcpp_lifecycle::State &state);
+  on_configure(const rclcpp_lifecycle::State &state) override;
 
   /**
    * @brief Callback for activating the node.
@@ -97,7 +97,7 @@ public:
    *         creation fails.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_activate(const rclcpp_lifecycle::State &state);
+  on_activate(const rclcpp_lifecycle::State &state) override;
 
   /**
    * @brief Callback for deactivating the node.
@@ -109,7 +109,7 @@ public:
    * @return SUCCESS.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_deactivate(const rclcpp_lifecycle::State &state);
+  on_deactivate(const rclcpp_lifecycle::State &state) override;
 
   /**
    * @brief Callback for cleaning up the node.
@@ -117,7 +117,7 @@ public:
    * @return SUCCESS.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_cleanup(const rclcpp_lifecycle::State &state);
+  on_cleanup(const rclcpp_lifecycle::State &state) override;
 
   /**
    * @brief Callback for shutting down the node.
@@ -125,7 +125,7 @@ public:
    * @return SUCCESS.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
-  on_shutdown(const rclcpp_lifecycle::State &state);
+  on_shutdown(const rclcpp_lifecycle::State &state) override;
 
 private:
   /** @brief Piper text-to-speech synthesizer (opaque C handle). */
@@ -199,8 +199,8 @@ private:
   /**
    * @brief Execute the TTS synthesis and publish audio for a goal.
    *
-   * Runs piper synthesis, converts float output to int16, and
-   * publishes audio chunks at the appropriate rate.
+   * Runs piper synthesis and publishes float32 audio chunks
+   * at the appropriate rate.
    *
    * @param goal_handle The handle for the goal being executed.
    */

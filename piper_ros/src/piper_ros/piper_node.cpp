@@ -215,6 +215,15 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 PiperNode::on_shutdown(const rclcpp_lifecycle::State &) {
 
   RCLCPP_INFO(get_logger(), "[%s] Shutting down...", this->get_name());
+
+  this->player_pub_.reset();
+  this->action_server_.reset();
+
+  if (this->synth_) {
+    piper_free(this->synth_);
+    this->synth_ = nullptr;
+  }
+
   RCLCPP_INFO(get_logger(), "[%s] Shut down", this->get_name());
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
@@ -302,7 +311,7 @@ void PiperNode::execute_callback(
 
       sample_rate = chunk.sample_rate;
 
-      // Convert float samples to int16_t
+      // Accumulate float samples
       for (size_t i = 0; i < chunk.num_samples; i++) {
         audio_buffer.push_back(chunk.samples[i]);
       }
