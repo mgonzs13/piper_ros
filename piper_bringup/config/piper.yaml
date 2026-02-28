@@ -1,0 +1,22 @@
+# Piper node parameters
+piper_node:
+  ros__parameters:
+    chunk: 512
+    frame_id: ""
+
+    # Model parameters
+    model:
+      repo: "rhasspy/piper-voices"
+      filename: "en/en_US/lessac/low/en_US-lessac-low.onnx"
+      path: ""
+      config_repo: "rhasspy/piper-voices"
+      config_filename: "en/en_US/lessac/low/en_US-lessac-low.onnx.json"
+      config_path: ""
+
+    # Synthesis parameters
+    synthesis:
+      speaker_id: 0
+      noise_scale: 0.667
+      length_scale: 1.0
+      noise_w_scale: 0.8
+      sentence_silence_seconds: 0.2

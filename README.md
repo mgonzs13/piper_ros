@@ -21,6 +21,7 @@ This repository provides a set of ROS 2 packages to integrate [piper](https://gi
 1. [Installation](#installation)
 2. [Docker](#docker)
 3. [Usage](#usage)
+4. [Params](#params)
 
 ## Installation
 
@@ -61,9 +62,40 @@ ros2 action send_goal /say audio_common_msgs/action/TTS "{'text': 'Hello World f
 
 ### Spanish Example
 
-````shell
-ros2 launch piper_bringup piper.launch.py model_filename:="es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx" model_config_filename:="es/es_ES/carlfm/x_low/es_ES-carlfm-x_low.onnx.json"```
+```shell
+ros2 launch piper_bringup piper_spanish.launch.py
+```
 
 ```shell
 ros2 action send_goal /say audio_common_msgs/action/TTS "{'text': 'Hola Mundo desde ros 2'}"
-````
+```
+
+## Params
+
+### General Parameters
+
+| Param      | Type     | Default | Description                                          |
+| ---------- | -------- | ------- | ---------------------------------------------------- |
+| `chunk`    | `int32`  | `512`   | Chunk size in samples for audio publication.         |
+| `frame_id` | `string` | `""`    | Frame ID attached to published AudioStamped headers. |
+
+### Model Parameters (`model.*`)
+
+| Param                   | Type     | Default                                            | Description                                                                                            |
+| ----------------------- | -------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `model.repo`            | `string` | `"rhasspy/piper-voices"`                           | HuggingFace repository for model download.                                                             |
+| `model.filename`        | `string` | `"en/en_US/lessac/low/en_US-lessac-low.onnx"`      | Filename of the model in the repository.                                                               |
+| `model.path`            | `string` | `""`                                               | Local path to the voice model file. If empty, the model is downloaded from `model.repo`.               |
+| `model.config_repo`     | `string` | `"rhasspy/piper-voices"`                           | HuggingFace repository for the model config download.                                                  |
+| `model.config_filename` | `string` | `"en/en_US/lessac/low/en_US-lessac-low.onnx.json"` | Filename of the model config in the repository.                                                        |
+| `model.config_path`     | `string` | `""`                                               | Local path to the JSON voice config file. If empty, the config is downloaded from `model.config_repo`. |
+
+### Synthesis Parameters (`synthesis.*`)
+
+| Param                                | Type    | Default | Description                                             |
+| ------------------------------------ | ------- | ------- | ------------------------------------------------------- |
+| `synthesis.speaker_id`               | `int32` | `0`     | Numerical speaker ID for multi-speaker voices.          |
+| `synthesis.noise_scale`              | `float` | `0.667` | Amount of noise added during audio generation.          |
+| `synthesis.length_scale`             | `float` | `1.0`   | Speed of speaking (1 = normal, < 1 faster, > 1 slower). |
+| `synthesis.noise_w_scale`            | `float` | `0.8`   | Variation in phoneme lengths during synthesis.          |
+| `synthesis.sentence_silence_seconds` | `float` | `0.2`   | Seconds of silence inserted between sentences.          |

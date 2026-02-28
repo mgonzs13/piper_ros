@@ -48,18 +48,20 @@ PiperNode::PiperNode()
   this->declare_parameter<int>("chunk", 512);
   this->declare_parameter<std::string>("frame_id", "");
 
-  this->declare_parameter<std::string>("model_repo", "");
-  this->declare_parameter<std::string>("model_filename", "");
-  this->declare_parameter<std::string>("model_path", "");
-  this->declare_parameter<std::string>("model_config_repo", "");
-  this->declare_parameter<std::string>("model_config_filename", "");
-  this->declare_parameter<std::string>("model_config_path", "");
+  // Model parameters
+  this->declare_parameter<std::string>("model.repo", "");
+  this->declare_parameter<std::string>("model.filename", "");
+  this->declare_parameter<std::string>("model.path", "");
+  this->declare_parameter<std::string>("model.config_repo", "");
+  this->declare_parameter<std::string>("model.config_filename", "");
+  this->declare_parameter<std::string>("model.config_path", "");
 
-  this->declare_parameter<int>("speaker_id", 0);
-  this->declare_parameter<float>("noise_scale", 0.667f);
-  this->declare_parameter<float>("length_scale", 1.0f);
-  this->declare_parameter<float>("noise_w_scale", 0.8f);
-  this->declare_parameter<float>("sentence_silence_seconds", 0.2f);
+  // Synthesis parameters
+  this->declare_parameter<int>("synthesis.speaker_id", 0);
+  this->declare_parameter<float>("synthesis.noise_scale", 0.667f);
+  this->declare_parameter<float>("synthesis.length_scale", 1.0f);
+  this->declare_parameter<float>("synthesis.noise_w_scale", 0.8f);
+  this->declare_parameter<float>("synthesis.sentence_silence_seconds", 0.2f);
 
   this->espeak_data_path_ =
       ament_index_cpp::get_package_share_directory("piper_vendor") +
@@ -102,18 +104,18 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
   this->get_parameter("chunk", this->chunk_);
   this->get_parameter("frame_id", this->frame_id_);
 
-  this->get_parameter("model_repo", model_repo);
-  this->get_parameter("model_filename", model_filename);
-  this->get_parameter("model_path", this->model_path_);
-  this->get_parameter("model_config_repo", model_config_repo);
-  this->get_parameter("model_config_filename", model_config_filename);
-  this->get_parameter("model_config_path", this->model_config_path_);
+  this->get_parameter("model.repo", model_repo);
+  this->get_parameter("model.filename", model_filename);
+  this->get_parameter("model.path", this->model_path_);
+  this->get_parameter("model.config_repo", model_config_repo);
+  this->get_parameter("model.config_filename", model_config_filename);
+  this->get_parameter("model.config_path", this->model_config_path_);
 
-  this->get_parameter("speaker_id", this->speaker_id_);
-  this->get_parameter("noise_scale", this->noise_scale_);
-  this->get_parameter("length_scale", this->length_scale_);
-  this->get_parameter("noise_w_scale", this->noise_w_scale_);
-  this->get_parameter("sentence_silence_seconds",
+  this->get_parameter("synthesis.speaker_id", this->speaker_id_);
+  this->get_parameter("synthesis.noise_scale", this->noise_scale_);
+  this->get_parameter("synthesis.length_scale", this->length_scale_);
+  this->get_parameter("synthesis.noise_w_scale", this->noise_w_scale_);
+  this->get_parameter("synthesis.sentence_silence_seconds",
                       this->sentence_silence_seconds_);
 
   // Download model

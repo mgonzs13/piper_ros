@@ -22,47 +22,31 @@
 
 
 import os
-from launch_ros.actions import Node
 from launch import LaunchDescription
-from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import IncludeLaunchDescription
 from ament_index_python.packages import get_package_share_directory
 
 
 def generate_launch_description():
 
-    config_dir = os.path.join(get_package_share_directory("piper_bringup"), "config")
-
-    piper_params_file = LaunchConfiguration(
-        "piper_params_file",
-        default=os.path.join(config_dir, "piper.yaml"),
-    )
-
     return LaunchDescription(
         [
-            Node(
-                package="piper_ros",
-                executable="piper_node",
-                name="piper_node",
-                parameters=[piper_params_file],
-                remappings=[("audio", "audio/out")],
-            ),
-            Node(
-                package="audio_common",
-                executable="audio_player_node",
-                name="player_node",
-                namespace="audio",
-                parameters=[
-                    {
-                        "channels": LaunchConfiguration("channels", default=1),
-                    }
-                ],
-                remappings=[("audio", "out")],
-                condition=IfCondition(
-                    PythonExpression(
-                        [LaunchConfiguration("launch_audio_player", default=True)]
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(
+                    os.path.join(
+                        get_package_share_directory("piper_bringup"),
+                        "launch",
+                        "piper.launch.py",
                     )
                 ),
-            ),
+                launch_arguments={
+                    "piper_params_file": os.path.join(
+                        get_package_share_directory("piper_bringup"),
+                        "config",
+                        "piper_spanish.yaml",
+                    ),
+                }.items(),
+            )
         ]
     )
