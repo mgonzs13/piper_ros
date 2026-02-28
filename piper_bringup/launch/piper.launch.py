@@ -48,12 +48,10 @@ def generate_launch_description():
         "speaker_id": LaunchConfiguration("speaker_id", default="0"),
         "noise_scale": LaunchConfiguration("noise_scale", default=0.667),
         "length_scale": LaunchConfiguration("length_scale", default=1.0),
-        "noise_w": LaunchConfiguration("noise_w", default=0.8),
+        "noise_w_scale": LaunchConfiguration("noise_w_scale", default=0.8),
         "sentence_silence_seconds": LaunchConfiguration(
             "sentence_silence_seconds", default=0.2
         ),
-        "silence_phonemes": LaunchConfiguration("silence_phonemes", default="[0]"),
-        "silence_seconds": LaunchConfiguration("silence_seconds", default="[0.0]"),
     }
 
     return LaunchDescription(
@@ -72,7 +70,7 @@ def generate_launch_description():
                 namespace="audio",
                 parameters=[
                     {
-                        "channels": LaunchConfiguration("channels", default=2),
+                        "channels": LaunchConfiguration("channels", default=1),
                     }
                 ],
                 remappings=[("audio", "out")],

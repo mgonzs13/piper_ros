@@ -35,6 +35,10 @@ target_link_libraries(piper_node
 # Export dependencies
 ament_export_dependencies(piper_vendor)
 
+# Use DT_RPATH instead of DT_RUNPATH so piper_vendor's onnxruntime
+# is found before any other onnxruntime in LD_LIBRARY_PATH
+target_link_options(piper_node PRIVATE -Wl,--disable-new-dtags)
+
 # Install
 install(TARGETS
 piper_node

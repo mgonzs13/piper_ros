@@ -5,153 +5,96 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-include(FetchContent)
+include(ExternalProject)
 find_package(ament_cmake REQUIRED)
 
-FetchContent_Declare(
-  piper
-  GIT_REPOSITORY https://github.com/rhasspy/piper.git
-  GIT_TAG 2023.11.14-2
-)
-FetchContent_MakeAvailable(piper)
-
-# Piper source include and lib directories
-set(PIPER_INCLUDE_DIR      ${piper_SOURCE_DIR}/src/cpp)
-set(PI_PIPER_INCLUDE_DIR   ${piper_BINARY_DIR}/pi/include)
-set(FI_PIPER_INCLUDE_DIR   ${piper_BINARY_DIR}/fi/include)
-set(SI_PIPER_INCLUDE_DIR   ${piper_BINARY_DIR}/si/include)
-
-set(PI_PIPER_LIB_DIR       ${piper_BINARY_DIR}/pi/lib)
-set(FI_PIPER_LIB_DIR       ${piper_BINARY_DIR}/fi/lib)
-set(SI_PIPER_LIB_DIR       ${piper_BINARY_DIR}/si/lib)
-
 # -----------------------------------------------------------------------------
-# 1) Build a static "piper_lib" wrapper
+# 1) Build libpiper via ExternalProject (handles espeak-ng and onnxruntime)
 # -----------------------------------------------------------------------------
 
-add_library(piper_lib STATIC
-  ${PIPER_INCLUDE_DIR}/piper.cpp
-)
-add_dependencies(piper_lib 
-  fmt_external
-  spdlog_external
-  piper_phonemize_external
+set(PIPER_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/piper-install)
+
+ExternalProject_Add(piper_external
+  GIT_REPOSITORY https://github.com/OHF-Voice/piper1-gpl
+  GIT_TAG v1.4.1
+  SOURCE_SUBDIR libpiper
+  CMAKE_ARGS
+    -DCMAKE_INSTALL_PREFIX=${PIPER_INSTALL_DIR}
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+    -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+  BUILD_BYPRODUCTS ${PIPER_INSTALL_DIR}/libpiper.so
+  UPDATE_DISCONNECTED TRUE
 )
 
-# Tell CMake that anything linking against piper_lib also needs to link the
-# underlying libraries: fmt, spdlog, espeak-ng, piper_phonemize, onnxruntime.
-# By making these PUBLIC, downstream targets will "see" those link-flags automatically.
-target_link_libraries(piper_lib
-  PRIVATE
-    fmt
-    spdlog
-  PUBLIC
-    ${piper_BINARY_DIR}/pi/lib/libespeak-ng.so
-    ${piper_BINARY_DIR}/pi/lib/libpiper_phonemize.so
-    ${piper_BINARY_DIR}/pi/lib/libonnxruntime.so
-)
+# -----------------------------------------------------------------------------
+# 2) Create an INTERFACE library wrapping the externally-built piper
+# -----------------------------------------------------------------------------
 
-# Make sure all of Piper’s own “pi/fi/si” sub-directories are on the include path
+add_library(piper_lib INTERFACE)
+add_dependencies(piper_lib piper_external)
+
 target_include_directories(piper_lib
-  PUBLIC
-    $<BUILD_INTERFACE:${PIPER_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${PI_PIPER_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${FI_PIPER_INCLUDE_DIR}>
-    $<BUILD_INTERFACE:${SI_PIPER_INCLUDE_DIR}>
+  INTERFACE
+    $<BUILD_INTERFACE:${PIPER_INSTALL_DIR}/include>
+    $<INSTALL_INTERFACE:include>
 )
 
-# Similarly, propagate Piper’s library search paths to anything that links piper_lib
+# libpiper.so is installed to the prefix root by upstream;
+# onnxruntime libs are installed to lib/
 target_link_directories(piper_lib
-  PUBLIC
-    $<BUILD_INTERFACE:${PI_PIPER_LIB_DIR}>
-    $<BUILD_INTERFACE:${FI_PIPER_LIB_DIR}>
-    $<BUILD_INTERFACE:${SI_PIPER_LIB_DIR}>
+  INTERFACE
+    $<BUILD_INTERFACE:${PIPER_INSTALL_DIR}>
+    $<BUILD_INTERFACE:${PIPER_INSTALL_DIR}/lib>
+    $<INSTALL_INTERFACE:lib>
+)
+
+target_link_libraries(piper_lib
+  INTERFACE
+    piper
+    onnxruntime
 )
 
 # -----------------------------------------------------------------------------
-# 2) Install headers, data files, and the compiled piper_lib
+# 3) Install headers, data files, and shared libraries
 # -----------------------------------------------------------------------------
 
-# Install espeak-ng data folder
+# Install espeak-ng data
 install(
-  DIRECTORY ${piper_BINARY_DIR}/pi/share/espeak-ng-data
+  DIRECTORY ${PIPER_INSTALL_DIR}/espeak-ng-data
   DESTINATION share/${PROJECT_NAME}/
 )
 
-# Install the ONNX “tashkeel” model
+# Install public header
 install(
-  FILES ${piper_BINARY_DIR}/pi/share/libtashkeel_model.ort
-  DESTINATION share/${PROJECT_NAME}/
+  FILES ${PIPER_INSTALL_DIR}/include/piper.h
+  DESTINATION include
 )
 
-# Install all of Piper’s public headers
+# Install libpiper shared library (upstream places it in the prefix root)
 install(
-  DIRECTORY ${PIPER_INCLUDE_DIR}/
-  DESTINATION include
-  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
-)
-install(
-  DIRECTORY ${PI_PIPER_INCLUDE_DIR}/
-  DESTINATION include
-  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
-)
-install(
-  DIRECTORY ${FI_PIPER_INCLUDE_DIR}/
-  DESTINATION include
-  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
-)
-install(
-  DIRECTORY ${SI_PIPER_INCLUDE_DIR}/
-  DESTINATION include
-  FILES_MATCHING PATTERN "*.h" PATTERN "*.hpp"
+  FILES ${PIPER_INSTALL_DIR}/libpiper.so
+  DESTINATION lib
 )
 
-# Install the built Piper sub-libs into <install_prefix>/lib
+# Install onnxruntime shared libraries
 install(
-  DIRECTORY ${PI_PIPER_LIB_DIR}/
-  DESTINATION lib
-  FILES_MATCHING PATTERN "*.so*"
-)
-install(
-  DIRECTORY ${FI_PIPER_LIB_DIR}/
-  DESTINATION lib
-  FILES_MATCHING PATTERN "*.so*"
-)
-install(
-  DIRECTORY ${SI_PIPER_LIB_DIR}/
+  DIRECTORY ${PIPER_INSTALL_DIR}/lib/
   DESTINATION lib
   FILES_MATCHING PATTERN "*.so*"
 )
 
-# Install our wrapper static library
+# Install the INTERFACE target
 install(
   TARGETS piper_lib
   EXPORT export_piper
-  ARCHIVE DESTINATION lib
-  INCLUDES DESTINATION include
 )
 
 # -----------------------------------------------------------------------------
-# 3) Export everything so downstream “find_package(piper_vendor)” just works
+# 4) Export everything so downstream "find_package(piper_vendor)" just works
 # -----------------------------------------------------------------------------
 
-# Export include directories so that downstream packages see “include/” automatically
-ament_export_include_directories(
-  include
-  ${PI_PIPER_INCLUDE_DIR}
-  ${FI_PIPER_INCLUDE_DIR}
-  ${SI_PIPER_INCLUDE_DIR}
-)
-
-# Export the piper_lib target (so downstream can do “target_link_libraries(their_node piper_lib)”)
-ament_export_targets(export_piper HAS_LIBRARY_TARGET)
-
-# ALSO export the piper_lib library name itself so that the linker flags for
-# espeak-ng, piper_phonemize, onnxruntime, etc., get passed along.
-#
-# Without this, a downstream that does `find_package(piper_vendor)` and
-# `target_link_libraries(their_node piper_lib)` won’t know about espeak-ng, etc.,
-# and you’ll see “cannot find -lespeak-ng” at link time.
-ament_export_libraries(piper_lib)
+ament_export_include_directories(include)
+ament_export_targets(export_piper)
+ament_export_libraries(piper onnxruntime)
 
 ament_package()

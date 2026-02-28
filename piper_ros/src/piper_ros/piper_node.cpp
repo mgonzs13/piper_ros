@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 #include <algorithm>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -41,7 +42,8 @@ using std::placeholders::_1;
 using std::placeholders::_2;
 
 PiperNode::PiperNode()
-    : rclcpp_lifecycle::LifecycleNode("piper_node"), pub_rate(nullptr) {
+    : rclcpp_lifecycle::LifecycleNode("piper_node"), synth_(nullptr),
+      pub_rate(nullptr) {
 
   this->declare_parameter<int>("chunk", 512);
   this->declare_parameter<std::string>("frame_id", "");
@@ -53,23 +55,15 @@ PiperNode::PiperNode()
   this->declare_parameter<std::string>("model_config_filename", "");
   this->declare_parameter<std::string>("model_config_path", "");
 
-  this->declare_parameter<long int>("speaker_id", 0);
+  this->declare_parameter<int>("speaker_id", 0);
   this->declare_parameter<float>("noise_scale", 0.667f);
   this->declare_parameter<float>("length_scale", 1.0f);
-  this->declare_parameter<float>("noise_w", 0.8f);
+  this->declare_parameter<float>("noise_w_scale", 0.8f);
   this->declare_parameter<float>("sentence_silence_seconds", 0.2f);
-  this->declare_parameter<std::vector<long int>>("silence_phonemes",
-                                                 std::vector<long int>({}));
-  this->declare_parameter<std::vector<double>>("silence_seconds",
-                                               std::vector<double>({}));
 
-  this->run_config.e_speak_data_path =
+  this->espeak_data_path_ =
       ament_index_cpp::get_package_share_directory("piper_vendor") +
       "/espeak-ng-data";
-
-  this->run_config.tashkeel_model_path =
-      ament_index_cpp::get_package_share_directory("piper_vendor") +
-      "/libtashkeel_model.ort";
 }
 
 std::string download_model(const std::string &repo_id,
@@ -96,9 +90,6 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
   std::string model_config_repo;
   std::string model_config_filename;
 
-  std::vector<long int> silence_phonemes;
-  std::vector<double> silence_seconds;
-
   RCLCPP_INFO(get_logger(), "[%s] Configuring...", this->get_name());
 
   this->get_parameter("chunk", this->chunk_);
@@ -106,27 +97,24 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
 
   this->get_parameter("model_repo", model_repo);
   this->get_parameter("model_filename", model_filename);
-  this->get_parameter("model_path", this->run_config.model_path);
+  this->get_parameter("model_path", this->model_path_);
   this->get_parameter("model_config_repo", model_config_repo);
   this->get_parameter("model_config_filename", model_config_filename);
-  this->get_parameter("model_config_path", this->run_config.model_config_path);
+  this->get_parameter("model_config_path", this->model_config_path_);
 
-  this->get_parameter("speaker_id", this->run_config.speaker_id);
-  this->get_parameter("noise_scale", this->run_config.noise_scale);
-  this->get_parameter("length_scale", this->run_config.length_scale);
-  this->get_parameter("noise_w", this->run_config.noise_w);
+  this->get_parameter("speaker_id", this->speaker_id_);
+  this->get_parameter("noise_scale", this->noise_scale_);
+  this->get_parameter("length_scale", this->length_scale_);
+  this->get_parameter("noise_w_scale", this->noise_w_scale_);
   this->get_parameter("sentence_silence_seconds",
-                      this->run_config.sentence_silence_seconds);
-
-  this->get_parameter("silence_phonemes", silence_phonemes);
-  this->get_parameter("silence_seconds", silence_seconds);
+                      this->sentence_silence_seconds_);
 
   // Download model
-  if (this->run_config.model_path.empty()) {
-    this->run_config.model_path = download_model(model_repo, model_filename);
+  if (this->model_path_.empty()) {
+    this->model_path_ = download_model(model_repo, model_filename);
   }
 
-  if (this->run_config.model_config_path.empty()) {
+  if (this->model_config_path_.empty()) {
 
     if (model_config_repo.empty()) {
       model_config_repo = model_repo;
@@ -136,21 +124,8 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
       model_config_filename = model_filename + ".json";
     }
 
-    this->run_config.model_config_path =
+    this->model_config_path_ =
         download_model(model_config_repo, model_config_filename);
-  }
-
-  if (silence_phonemes.size() != silence_seconds.size()) {
-    RCLCPP_ERROR(this->get_logger(),
-                 "silence_phonemes (%ld) and silence_seconds (%ld) must have "
-                 "the same size",
-                 silence_phonemes.size(), silence_seconds.size());
-
-  } else {
-    for (size_t i = 0; i < silence_phonemes.size(); i++) {
-      this->run_config.phoneme_silence_seconds.insert(
-          {silence_phonemes.at(i), silence_phonemes.at(i)});
-    }
   }
 
   RCLCPP_INFO(get_logger(), "[%s] Configured", this->get_name());
@@ -164,65 +139,20 @@ PiperNode::on_activate(const rclcpp_lifecycle::State &) {
 
   RCLCPP_INFO(get_logger(), "[%s] Activating...", this->get_name());
   RCLCPP_INFO(get_logger(), "Loading voice from %s (config=%s)",
-              this->run_config.model_path.c_str(),
-              this->run_config.model_config_path.c_str());
+              this->model_path_.c_str(), this->model_config_path_.c_str());
 
-  std::optional<long int> temp_speaker_id = this->run_config.speaker_id;
-  loadVoice(this->piper_config, this->run_config.model_path,
-            this->run_config.model_config_path, this->voice, temp_speaker_id);
+  // Create piper synthesizer
+  const char *config_path = this->model_config_path_.empty()
+                                ? nullptr
+                                : this->model_config_path_.c_str();
 
-  if (this->voice.phonemizeConfig.phonemeType == piper::eSpeakPhonemes) {
-    RCLCPP_INFO(this->get_logger(), "Voice uses eSpeak phonemes (%s)",
-                this->voice.phonemizeConfig.eSpeak.voice.c_str());
-    this->piper_config.eSpeakDataPath = this->run_config.e_speak_data_path;
+  this->synth_ = piper_create(this->model_path_.c_str(), config_path,
+                              this->espeak_data_path_.c_str());
 
-  } else {
-    // Not using eSpeak
-    this->piper_config.useESpeak = false;
-  }
-
-  // Enable libtashkeel for Arabic
-  if (this->voice.phonemizeConfig.eSpeak.voice == "ar") {
-    this->piper_config.useTashkeel = true;
-    this->piper_config.tashkeelModelPath = this->run_config.tashkeel_model_path;
-  }
-
-  // Init piper
-  piper::initialize(this->piper_config);
-
-  // Scales
-  if (this->run_config.noise_scale) {
-    this->voice.synthesisConfig.noiseScale = this->run_config.noise_scale;
-  }
-
-  if (this->run_config.length_scale) {
-    this->voice.synthesisConfig.lengthScale = this->run_config.length_scale;
-  }
-
-  if (this->run_config.noise_w) {
-    this->voice.synthesisConfig.noiseW = this->run_config.noise_w;
-  }
-
-  if (this->run_config.sentence_silence_seconds) {
-    this->voice.synthesisConfig.sentenceSilenceSeconds =
-        this->run_config.sentence_silence_seconds;
-  }
-
-  // If phonemeSilenceSeconds
-  if (this->run_config.phoneme_silence_seconds.size()) {
-    if (!this->voice.synthesisConfig.phonemeSilenceSeconds) {
-      // Overwrite
-      this->voice.synthesisConfig.phonemeSilenceSeconds =
-          this->run_config.phoneme_silence_seconds;
-
-    } else {
-      // Merge
-      for (const auto &[phoneme, silence_seconds] :
-           this->run_config.phoneme_silence_seconds) {
-        this->voice.synthesisConfig.phonemeSilenceSeconds->try_emplace(
-            phoneme, silence_seconds);
-      }
-    }
+  if (!this->synth_) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to create piper synthesizer");
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
+        CallbackReturn::FAILURE;
   }
 
   // Audio pub
@@ -252,6 +182,11 @@ PiperNode::on_deactivate(const rclcpp_lifecycle::State &) {
 
   this->action_server_.reset();
   this->action_server_ = nullptr;
+
+  if (this->synth_) {
+    piper_free(this->synth_);
+    this->synth_ = nullptr;
+  }
 
   RCLCPP_INFO(get_logger(), "[%s] Deactivated", this->get_name());
 
@@ -330,13 +265,49 @@ void PiperNode::execute_callback(
   auto result = std::make_shared<TTS::Result>();
   result->text = text;
 
-  // Create audio
-  piper::SynthesisResult piper_result;
+  // Set up synthesis options
+  piper_synthesize_options options =
+      piper_default_synthesize_options(this->synth_);
+  options.speaker_id = this->speaker_id_;
+  options.noise_scale = this->noise_scale_;
+  options.length_scale = this->length_scale_;
+  options.noise_w_scale = this->noise_w_scale_;
+
+  // Generate audio using streaming API
   std::vector<int16_t> audio_buffer;
+  int sample_rate = 22050; // default
 
   try {
-    textToAudio(this->piper_config, this->voice, text, audio_buffer,
-                piper_result, NULL);
+    int ret = piper_synthesize_start(this->synth_, text.c_str(), &options);
+    if (ret != PIPER_OK) {
+      throw std::runtime_error("Failed to start synthesis");
+    }
+
+    piper_audio_chunk chunk;
+    while (true) {
+      ret = piper_synthesize_next(this->synth_, &chunk);
+      if (ret == PIPER_DONE) {
+        break;
+      }
+      if (ret != PIPER_OK) {
+        throw std::runtime_error("Error during synthesis");
+      }
+
+      sample_rate = chunk.sample_rate;
+
+      // Convert float samples to int16_t
+      for (size_t i = 0; i < chunk.num_samples; i++) {
+        float sample = std::clamp(chunk.samples[i], -1.0f, 1.0f);
+        audio_buffer.push_back(static_cast<int16_t>(sample * 32767.0f));
+      }
+
+      // Add sentence silence
+      if (this->sentence_silence_seconds_ > 0.0f) {
+        int silence_samples = static_cast<int>(this->sentence_silence_seconds_ *
+                                               chunk.sample_rate);
+        audio_buffer.insert(audio_buffer.end(), silence_samples, 0);
+      }
+    }
 
   } catch (const std::exception &e) {
     RCLCPP_ERROR(this->get_logger(), "Error while generating audio: %s",
@@ -351,18 +322,11 @@ void PiperNode::execute_callback(
   this->run_next_goal();
 
   if (this->pub_rate == nullptr) {
-    std::chrono::nanoseconds period(
-        (int)(1e9 * this->chunk_ / this->voice.synthesisConfig.sampleRate));
+    std::chrono::nanoseconds period((int)(1e9 * this->chunk_ / sample_rate));
     this->pub_rate = std::make_unique<rclcpp::Rate>(period);
   }
 
-  // Initialize the audio message
-  audio_common_msgs::msg::AudioStamped msg;
-  msg.header.frame_id = this->frame_id_;
-
   // Publish the audio data in chunks
-  std::vector<float> data(this->chunk_);
-
   for (size_t i = 0; i < audio_buffer.size(); i += this->chunk_) {
 
     int min_size = std::min(this->chunk_, (int)(audio_buffer.size() - i));
@@ -381,10 +345,10 @@ void PiperNode::execute_callback(
     auto msg = audio_common_msgs::msg::AudioStamped();
     msg.header.stamp = this->get_clock()->now();
     msg.audio.audio_data.int16_data = data;
-    msg.audio.info.channels = this->voice.synthesisConfig.channels;
+    msg.audio.info.channels = 1;
     msg.audio.info.chunk = this->chunk_;
     msg.audio.info.format = 8;
-    msg.audio.info.rate = this->voice.synthesisConfig.sampleRate;
+    msg.audio.info.rate = sample_rate;
 
     auto feedback = std::make_shared<TTS::Feedback>();
     feedback->audio = msg;

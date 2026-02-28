@@ -27,16 +27,15 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 
-#include <map>
 #include <memory>
+#include <mutex>
 #include <queue>
 #include <string>
 
 #include "audio_common_msgs/action/tts.hpp"
 #include "audio_common_msgs/msg/audio_stamped.hpp"
 
-#include "json.hpp"
-#include "piper.hpp"
+#include <piper.h>
 
 namespace piper_ros {
 
@@ -49,41 +48,6 @@ using TTS = audio_common_msgs::action::TTS;
  * @brief Alias for the TTS action goal handle.
  */
 using GoalHandleTTS = rclcpp_action::ServerGoalHandle<TTS>;
-
-/**
- * @brief Configuration structure for running the Piper TTS system.
- */
-struct RunConfig {
-  /// Path to espeak-ng data directory (default is next to piper executable)
-  std::string e_speak_data_path;
-
-  /// Path to .onnx voice file
-  std::string model_path;
-
-  /// Path to JSON voice config file
-  std::string model_config_path;
-
-  /// Path to libtashkeel ort model https://github.com/mush42/libtashkeel/
-  std::string tashkeel_model_path;
-
-  /// Numerical id of the default speaker (multi-speaker voices)
-  piper::SpeakerId speaker_id;
-
-  /// Amount of noise to add during audio generation
-  float noise_scale;
-
-  /// Speed of speaking (1 = normal, < 1 is faster, > 1 is slower)
-  float length_scale;
-
-  /// Variation in phoneme lengths
-  float noise_w;
-
-  /// Seconds of silence to add after each sentence
-  float sentence_silence_seconds;
-
-  /// Seconds of extra silence to insert after a single phoneme
-  std::map<piper::Phoneme, float> phoneme_silence_seconds;
-};
 
 /**
  * @brief ROS 2 Lifecycle Node for managing the Piper TTS system.
@@ -136,19 +100,32 @@ public:
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_shutdown(const rclcpp_lifecycle::State &state);
 
-protected:
-  /// Configuration for running the Piper TTS system.
-  struct RunConfig run_config;
-  /// Piper configuration object.
-  piper::PiperConfig piper_config;
-  /// Voice object for TTS generation.
-  piper::Voice voice;
-
 private:
+  /// Piper text-to-speech synthesizer.
+  piper_synthesizer *synth_;
+
   /// Chunk size for audio processing.
   int chunk_;
   /// Frame ID for audio messages.
   std::string frame_id_;
+
+  /// Path to .onnx voice file.
+  std::string model_path_;
+  /// Path to JSON voice config file.
+  std::string model_config_path_;
+  /// Path to espeak-ng data directory.
+  std::string espeak_data_path_;
+
+  /// Numerical id of the default speaker (multi-speaker voices).
+  int speaker_id_;
+  /// Amount of noise to add during audio generation.
+  float noise_scale_;
+  /// Speed of speaking (1 = normal, < 1 is faster, > 1 is slower).
+  float length_scale_;
+  /// Variation in phoneme lengths.
+  float noise_w_scale_;
+  /// Seconds of silence to add after each sentence.
+  float sentence_silence_seconds_;
 
   /// Queue for managing TTS goals.
   std::queue<std::shared_ptr<GoalHandleTTS>> goal_queue_;
