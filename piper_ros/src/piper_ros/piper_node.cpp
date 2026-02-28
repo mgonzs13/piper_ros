@@ -66,6 +66,13 @@ PiperNode::PiperNode()
       "/espeak-ng-data";
 }
 
+PiperNode::~PiperNode() {
+  if (this->synth_) {
+    piper_free(this->synth_);
+    this->synth_ = nullptr;
+  }
+}
+
 std::string download_model(const std::string &repo_id,
                            const std::string &filename) {
 
@@ -208,7 +215,7 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 PiperNode::on_shutdown(const rclcpp_lifecycle::State &) {
 
   RCLCPP_INFO(get_logger(), "[%s] Shutting down...", this->get_name());
-  RCLCPP_INFO(get_logger(), "[%s] Shutted down", this->get_name());
+  RCLCPP_INFO(get_logger(), "[%s] Shut down", this->get_name());
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
       CallbackReturn::SUCCESS;
@@ -274,7 +281,7 @@ void PiperNode::execute_callback(
   options.noise_w_scale = this->noise_w_scale_;
 
   // Generate audio using streaming API
-  std::vector<int16_t> audio_buffer;
+  std::vector<float> audio_buffer;
   int sample_rate = 22050; // default
 
   try {
@@ -286,10 +293,10 @@ void PiperNode::execute_callback(
     piper_audio_chunk chunk;
     while (true) {
       ret = piper_synthesize_next(this->synth_, &chunk);
+
       if (ret == PIPER_DONE) {
         break;
-      }
-      if (ret != PIPER_OK) {
+      } else if (ret != PIPER_OK) {
         throw std::runtime_error("Error during synthesis");
       }
 
@@ -297,12 +304,11 @@ void PiperNode::execute_callback(
 
       // Convert float samples to int16_t
       for (size_t i = 0; i < chunk.num_samples; i++) {
-        float sample = std::clamp(chunk.samples[i], -1.0f, 1.0f);
-        audio_buffer.push_back(static_cast<int16_t>(sample * 32767.0f));
+        audio_buffer.push_back(chunk.samples[i]);
       }
 
-      // Add sentence silence
-      if (this->sentence_silence_seconds_ > 0.0f) {
+      // Add sentence silence between sentences (not after the last one)
+      if (this->sentence_silence_seconds_ > 0.0f && !chunk.is_last) {
         int silence_samples = static_cast<int>(this->sentence_silence_seconds_ *
                                                chunk.sample_rate);
         audio_buffer.insert(audio_buffer.end(), silence_samples, 0);
@@ -321,16 +327,14 @@ void PiperNode::execute_callback(
   std::unique_lock<std::mutex> lock(this->pub_lock_);
   this->run_next_goal();
 
-  if (this->pub_rate == nullptr) {
-    std::chrono::nanoseconds period((int)(1e9 * this->chunk_ / sample_rate));
-    this->pub_rate = std::make_unique<rclcpp::Rate>(period);
-  }
+  std::chrono::nanoseconds period((int)(1e9 * this->chunk_ / sample_rate));
+  this->pub_rate = std::make_unique<rclcpp::Rate>(period);
 
   // Publish the audio data in chunks
   for (size_t i = 0; i < audio_buffer.size(); i += this->chunk_) {
 
     int min_size = std::min(this->chunk_, (int)(audio_buffer.size() - i));
-    std::vector<int16_t> data(&audio_buffer[i], &audio_buffer[i + min_size]);
+    std::vector<float> data(&audio_buffer[i], &audio_buffer[i + min_size]);
 
     int pad_size = this->chunk_ - data.size();
     if (pad_size > 0) {
@@ -344,10 +348,11 @@ void PiperNode::execute_callback(
 
     auto msg = audio_common_msgs::msg::AudioStamped();
     msg.header.stamp = this->get_clock()->now();
-    msg.audio.audio_data.int16_data = data;
+    msg.header.frame_id = this->frame_id_;
+    msg.audio.audio_data.float32_data = data;
     msg.audio.info.channels = 1;
     msg.audio.info.chunk = this->chunk_;
-    msg.audio.info.format = 8;
+    msg.audio.info.format = 1;
     msg.audio.info.rate = sample_rate;
 
     auto feedback = std::make_shared<TTS::Feedback>();

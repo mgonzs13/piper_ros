@@ -51,35 +51,62 @@ using GoalHandleTTS = rclcpp_action::ServerGoalHandle<TTS>;
 
 /**
  * @brief ROS 2 Lifecycle Node for managing the Piper TTS system.
+ *
+ * This node wraps the libpiper C API to provide text-to-speech
+ * functionality as a ROS 2 action server. It downloads voice models
+ * from HuggingFace Hub and streams synthesized audio as
+ * AudioStamped messages.
+ *
+ * @sa https://github.com/OHF-Voice/piper1-gpl
  */
 class PiperNode : public rclcpp_lifecycle::LifecycleNode {
 
 public:
   /**
    * @brief Constructor for the PiperNode class.
+   *
+   * Declares all ROS 2 parameters and resolves the espeak-ng data path.
    */
   PiperNode();
 
   /**
+   * @brief Destructor. Frees piper synthesizer resources if still active.
+   */
+  ~PiperNode();
+
+  /**
    * @brief Callback for configuring the node.
+   *
+   * Reads parameters, downloads the voice model and config from
+   * HuggingFace Hub if paths are not provided directly.
+   *
    * @param state The current lifecycle state.
-   * @return The result of the configuration process.
+   * @return SUCCESS on successful configuration.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_configure(const rclcpp_lifecycle::State &state);
 
   /**
    * @brief Callback for activating the node.
+   *
+   * Creates the piper synthesizer, sets up the audio publisher
+   * and TTS action server.
+   *
    * @param state The current lifecycle state.
-   * @return The result of the activation process.
+   * @return SUCCESS on successful activation, FAILURE if synthesizer
+   *         creation fails.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_activate(const rclcpp_lifecycle::State &state);
 
   /**
    * @brief Callback for deactivating the node.
+   *
+   * Resets the publisher, action server, and frees the piper
+   * synthesizer.
+   *
    * @param state The current lifecycle state.
-   * @return The result of the deactivation process.
+   * @return SUCCESS.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_deactivate(const rclcpp_lifecycle::State &state);
@@ -87,7 +114,7 @@ public:
   /**
    * @brief Callback for cleaning up the node.
    * @param state The current lifecycle state.
-   * @return The result of the cleanup process.
+   * @return SUCCESS.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_cleanup(const rclcpp_lifecycle::State &state);
@@ -95,61 +122,61 @@ public:
   /**
    * @brief Callback for shutting down the node.
    * @param state The current lifecycle state.
-   * @return The result of the shutdown process.
+   * @return SUCCESS.
    */
   rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
   on_shutdown(const rclcpp_lifecycle::State &state);
 
 private:
-  /// Piper text-to-speech synthesizer.
+  /** @brief Piper text-to-speech synthesizer (opaque C handle). */
   piper_synthesizer *synth_;
 
-  /// Chunk size for audio processing.
+  /** @brief Chunk size in samples for audio publication. */
   int chunk_;
-  /// Frame ID for audio messages.
+  /** @brief Frame ID attached to published AudioStamped headers. */
   std::string frame_id_;
 
-  /// Path to .onnx voice file.
+  /** @brief Path to the .onnx voice model file. */
   std::string model_path_;
-  /// Path to JSON voice config file.
+  /** @brief Path to the JSON voice config file. */
   std::string model_config_path_;
-  /// Path to espeak-ng data directory.
+  /** @brief Path to the espeak-ng data directory. */
   std::string espeak_data_path_;
 
-  /// Numerical id of the default speaker (multi-speaker voices).
+  /** @brief Numerical speaker id for multi-speaker voices. */
   int speaker_id_;
-  /// Amount of noise to add during audio generation.
+  /** @brief Amount of noise added during audio generation. */
   float noise_scale_;
-  /// Speed of speaking (1 = normal, < 1 is faster, > 1 is slower).
+  /** @brief Speed of speaking (1 = normal, < 1 faster, > 1 slower). */
   float length_scale_;
-  /// Variation in phoneme lengths.
+  /** @brief Variation in phoneme lengths during synthesis. */
   float noise_w_scale_;
-  /// Seconds of silence to add after each sentence.
+  /** @brief Seconds of silence inserted between sentences. */
   float sentence_silence_seconds_;
 
-  /// Queue for managing TTS goals.
+  /** @brief FIFO queue of pending TTS goal handles. */
   std::queue<std::shared_ptr<GoalHandleTTS>> goal_queue_;
-  /// Mutex for synchronizing access to the goal queue.
+  /** @brief Mutex protecting @ref goal_queue_ and @ref current_goal_handle_. */
   std::recursive_mutex goal_queue_lock_;
-  /// Handle for the current TTS goal being processed.
+  /** @brief Handle for the TTS goal currently being executed. */
   std::shared_ptr<GoalHandleTTS> current_goal_handle_;
 
-  /// Mutex for synchronizing access to the audio publisher.
+  /** @brief Mutex serializing audio chunk publication. */
   std::mutex pub_lock_;
-  /// Rate for publishing audio messages.
+  /** @brief Rate limiter matching audio chunk / sample-rate cadence. */
   std::unique_ptr<rclcpp::Rate> pub_rate;
-  /// Publisher for audio messages.
+  /** @brief Publisher for AudioStamped messages. */
   rclcpp::Publisher<audio_common_msgs::msg::AudioStamped>::SharedPtr
       player_pub_;
 
-  /// Action server for handling TTS goals.
+  /** @brief Action server exposing the ~/say TTS action. */
   rclcpp_action::Server<TTS>::SharedPtr action_server_;
 
   /**
-   * @brief Handle a new TTS goal.
+   * @brief Handle a new TTS goal request.
    * @param uuid The unique identifier for the goal.
-   * @param goal The goal message.
-   * @return The response to the goal request.
+   * @param goal The goal message containing the text to synthesize.
+   * @return ACCEPT_AND_EXECUTE.
    */
   rclcpp_action::GoalResponse
   handle_goal(const rclcpp_action::GoalUUID &uuid,
@@ -158,25 +185,29 @@ private:
   /**
    * @brief Handle a request to cancel a TTS goal.
    * @param goal_handle The handle for the goal to be canceled.
-   * @return The response to the cancel request.
+   * @return ACCEPT.
    */
   rclcpp_action::CancelResponse
   handle_cancel(const std::shared_ptr<GoalHandleTTS> goal_handle);
 
   /**
-   * @brief Handle an accepted TTS goal.
+   * @brief Handle an accepted TTS goal by queuing it for execution.
    * @param goal_handle The handle for the accepted goal.
    */
   void handle_accepted(const std::shared_ptr<GoalHandleTTS> goal_handle);
 
   /**
-   * @brief Execute the callback for a TTS goal.
+   * @brief Execute the TTS synthesis and publish audio for a goal.
+   *
+   * Runs piper synthesis, converts float output to int16, and
+   * publishes audio chunks at the appropriate rate.
+   *
    * @param goal_handle The handle for the goal being executed.
    */
   void execute_callback(const std::shared_ptr<GoalHandleTTS> goal_handle);
 
   /**
-   * @brief Process the next goal in the queue.
+   * @brief Dequeue and start the next pending TTS goal, if any.
    */
   void run_next_goal();
 };
