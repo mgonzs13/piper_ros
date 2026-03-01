@@ -1,28 +1,30 @@
 ARG ROS_DISTRO=humble
 FROM ros:${ROS_DISTRO} AS deps
 
-# Create ros2_ws and copy files
-WORKDIR /root/ros2_ws
 SHELL ["/bin/bash", "-c"]
-COPY . /root/ros2_ws/src
 
-# Install dependencies
-WORKDIR /root/ros2_ws/src
-RUN git clone https://github.com/mgonzs13/audio_common.git
-
+# Copy sources and import dependencies via vcs
 WORKDIR /root/ros2_ws
-RUN source /opt/ros/${ROS_DISTRO}/setup.bash
-RUN apt-get update
-RUN rosdep update --include-eol-distros && rosdep install --from-paths src --ignore-src -r -y
-RUN rosdep install --from-paths src --ignore-src -r -y
+COPY . src/piper_ros/
+RUN apt-get update && \
+    apt-get install -y python3-vcstool && \
+    vcs import src < src/piper_ros/dependencies.repos && \
+    rm -rf /var/lib/apt/lists/*
 
-# Build the ws with colcon
+# Install ROS dependencies
+RUN apt-get update && \
+    rosdep update --include-eol-distros && \
+    rosdep install --from-paths src --ignore-src -r -y && \
+    rm -rf /var/lib/apt/lists/*
+
+# Build the workspace with colcon
 FROM deps AS builder
 ARG CMAKE_BUILD_TYPE=Release
-RUN source /opt/ros/${ROS_DISTRO}/setup.bash && colcon build
 
-# Source the ROS 2 setup file
+RUN source /opt/ros/${ROS_DISTRO}/setup.bash && \
+    colcon build --cmake-args -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+
+# Source the workspace on login
 RUN echo "source /root/ros2_ws/install/setup.bash" >> ~/.bashrc
 
-# Run a default command, e.g., starting a bash shell
 CMD ["bash"]
