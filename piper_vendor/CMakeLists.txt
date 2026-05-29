@@ -16,7 +16,7 @@ set(PIPER_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/piper-install)
 
 ExternalProject_Add(piper_external
   GIT_REPOSITORY https://github.com/OHF-Voice/piper1-gpl
-  GIT_TAG v1.4.1
+  GIT_TAG v1.4.2
   SOURCE_SUBDIR libpiper
   PATCH_COMMAND find <SOURCE_DIR> -name CMakeLists.txt -exec
     sed -i "s/cmake_minimum_required(VERSION 3\\.2[6-9])/cmake_minimum_required(VERSION 3.16)/" {} +
