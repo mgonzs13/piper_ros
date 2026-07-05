@@ -26,7 +26,17 @@
 #include <string>
 #include <vector>
 
+#if __has_include("rclcpp/version.h")
+#include "rclcpp/version.h"
+#if RCLCPP_VERSION_GTE(32, 0, 0)
+#include <ament_index_cpp/get_package_share_path.hpp>
+#else
 #include <ament_index_cpp/get_package_share_directory.hpp>
+#endif
+#else
+#include <ament_index_cpp/get_package_share_directory.hpp>
+#endif
+
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
@@ -63,9 +73,20 @@ PiperNode::PiperNode()
   this->declare_parameter<float>("synthesis.noise_w_scale", 0.8f);
   this->declare_parameter<float>("synthesis.sentence_silence_seconds", 0.2f);
 
-  this->espeak_data_path_ =
-      ament_index_cpp::get_package_share_directory("piper_vendor") +
-      "/espeak-ng-data";
+  std::string package_path;
+
+#if __has_include("rclcpp/version.h")
+#if RCLCPP_VERSION_GTE(32, 0, 0)
+  package_path =
+      ament_index_cpp::get_package_share_path("piper_vendor").string();
+#else
+  package_path = ament_index_cpp::get_package_share_directory("piper_vendor");
+#endif
+#else
+  package_path = ament_index_cpp::get_package_share_directory("piper_vendor");
+#endif
+
+  this->espeak_data_path_ = package_path + "/espeak-ng-data";
 }
 
 PiperNode::~PiperNode() {
