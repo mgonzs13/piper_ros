@@ -1,0 +1,23 @@
+<map id="piper_ros/include/piper_ros/piper_node.hpp" name="piper_ros/include/piper_ros/piper_node.hpp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="579,5,730,46"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="5,102,125,127"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="579,36,378,58,257,76,136,97,122,100,120,95,135,91,256,70,377,53,578,31"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="148,94,286,135"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="579,43,301,96,300,91,578,38"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="310,94,471,135"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="595,49,465,91,464,86,594,44"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="495,102,563,127"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="627,49,560,95,557,90,624,44"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="586,102,642,127"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="648,48,629,89,624,86,643,45"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="666,102,722,127"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="666,45,685,86,680,89,661,48"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="746,102,800,127"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="683,44,746,90,743,94,680,49"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="823,94,1011,135"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="715,44,843,86,842,91,713,49"/>
+<area shape="rect" id="Node000010" title=" " alt="" coords="1035,94,1212,135"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="731,38,1021,91,1020,96,730,43"/>
+<area shape="rect" id="Node000011" title=" " alt="" coords="1237,102,1296,127"/>
+<area shape="poly" id="edge10_Node000001_Node000011" title=" " alt="" coords="731,26,831,31,955,42,1091,61,1226,91,1230,93,1229,98,1224,97,1090,66,954,47,830,36,730,31"/>
+</map>
