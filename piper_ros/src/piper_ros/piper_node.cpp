@@ -299,7 +299,7 @@ void PiperNode::execute_callback(
     const std::shared_ptr<GoalHandleTTS> goal_handle) {
 
   const auto goal = goal_handle->get_goal();
-  std::string text = goal->text;
+  const std::string text = goal->text;
 
   auto result = std::make_shared<TTS::Result>();
   result->text = text;
@@ -322,59 +322,75 @@ void PiperNode::execute_callback(
       throw std::runtime_error("Failed to start synthesis");
     }
 
-    piper_audio_chunk chunk;
     while (true) {
+      piper_audio_chunk chunk{};
       ret = piper_synthesize_next(this->synth_, &chunk);
 
-      if (ret == PIPER_DONE) {
-        break;
-      } else if (ret != PIPER_OK) {
+      // Any return value other than OK/DONE is an actual error.
+      if (ret != PIPER_OK && ret != PIPER_DONE) {
         throw std::runtime_error("Error during synthesis");
       }
 
-      sample_rate = chunk.sample_rate;
+      // Do not discard the chunk if piper_synthesize_next() returned
+      // PIPER_DONE. Some piper1-gpl versions still send data in the final
+      // chunk.
+      if (chunk.samples != nullptr && chunk.num_samples > 0) {
+        sample_rate = chunk.sample_rate;
 
-      // Accumulate float samples
-      for (size_t i = 0; i < chunk.num_samples; i++) {
-        audio_buffer.push_back(chunk.samples[i]);
+        audio_buffer.insert(audio_buffer.end(), chunk.samples,
+                            chunk.samples + chunk.num_samples);
+
+        // Add silence between sentences, but never after the final chunk.
+        if (this->sentence_silence_seconds_ > 0.0f && !chunk.is_last &&
+            ret != PIPER_DONE) {
+          const size_t silence_samples =
+              static_cast<size_t>(this->sentence_silence_seconds_ *
+                                  static_cast<float>(chunk.sample_rate));
+          audio_buffer.insert(audio_buffer.end(), silence_samples, 0.0f);
+        }
       }
 
-      // Add sentence silence between sentences (not after the last one)
-      if (this->sentence_silence_seconds_ > 0.0f && !chunk.is_last) {
-        int silence_samples = static_cast<int>(this->sentence_silence_seconds_ *
-                                               chunk.sample_rate);
-        audio_buffer.insert(audio_buffer.end(), silence_samples, 0);
+      // PIPER_DONE means that there will be no more chunks.
+      if (ret == PIPER_DONE) {
+        break;
       }
     }
 
   } catch (const std::exception &e) {
     RCLCPP_ERROR(this->get_logger(), "Error while generating audio: %s",
                  e.what());
-    this->run_next_goal();
     goal_handle->abort(result);
+    this->run_next_goal();
     return;
   }
 
-  // Create rate
+  // Publish the synthesized audio only after synthesis has completed.
   std::unique_lock<std::mutex> lock(this->pub_lock_);
-  this->run_next_goal();
 
-  std::chrono::nanoseconds period((int)(1e9 * this->chunk_ / sample_rate));
+  const std::chrono::nanoseconds period(
+      static_cast<int64_t>(1e9 * static_cast<double>(this->chunk_) /
+                           static_cast<double>(sample_rate)));
+
   this->pub_rate = std::make_unique<rclcpp::Rate>(period);
 
   // Publish the audio data in chunks
   for (size_t i = 0; i < audio_buffer.size(); i += this->chunk_) {
 
-    int min_size = std::min(this->chunk_, (int)(audio_buffer.size() - i));
-    std::vector<float> data(&audio_buffer[i], &audio_buffer[i + min_size]);
+    const size_t remaining = audio_buffer.size() - i;
+    const size_t data_size =
+        std::min(static_cast<size_t>(this->chunk_), remaining);
+    std::vector<float> data(audio_buffer.begin() + i,
+                            audio_buffer.begin() + i + data_size);
 
-    int pad_size = this->chunk_ - data.size();
-    if (pad_size > 0) {
-      data.insert(data.end(), pad_size, 0);
+    // AudioStamped chunks are required to have exactly chunk_ samples. Zero-pad
+    // only the final message.
+    if (data.size() < static_cast<size_t>(this->chunk_)) {
+      data.resize(this->chunk_, 0.0f);
     }
 
     if (goal_handle->is_canceling()) {
       goal_handle->canceled(result);
+      this->run_next_goal();
       return;
     }
 
@@ -392,8 +408,16 @@ void PiperNode::execute_callback(
 
     this->player_pub_->publish(msg);
     goal_handle->publish_feedback(feedback);
-    this->pub_rate->sleep();
+
+    // Do not sleep after the final chunk.
+    if (i + data_size < audio_buffer.size()) {
+      this->pub_rate->sleep();
+    }
   }
 
   goal_handle->succeed(result);
+
+  // Start the next queued goal ONLY after the current goal has finished
+  // publishing its audio.
+  this->run_next_goal();
 }
