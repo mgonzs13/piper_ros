@@ -16,7 +16,7 @@ set(PIPER_INSTALL_DIR ${CMAKE_CURRENT_BINARY_DIR}/piper-install)
 
 ExternalProject_Add(piper_external
   GIT_REPOSITORY https://github.com/OHF-Voice/piper1-gpl
-  GIT_TAG v1.6.0
+  GIT_TAG v1.8.0
   SOURCE_SUBDIR libpiper
   PATCH_COMMAND find <SOURCE_DIR> -name CMakeLists.txt -exec
     sed -i "s/cmake_minimum_required(VERSION 3\\.2[6-9])/cmake_minimum_required(VERSION 3.16)/" {} +
@@ -29,11 +29,20 @@ ExternalProject_Add(piper_external
   COMMAND sed -i
     "s|add_subdirectory(src/main)|# add_subdirectory(src/main) - removed|"
     <SOURCE_DIR>/libpiper/CMakeLists.txt
+  # Force find_library() to use the onnxruntime downloaded by libpiper instead
+  # of another onnxruntime found through CMAKE_PREFIX_PATH (e.g. a different
+  # ORT version vendored by another workspace package)
+  COMMAND sed -i
+    "s|/lib REQUIRED|/lib NO_DEFAULT_PATH REQUIRED|"
+    <SOURCE_DIR>/libpiper/CMakeLists.txt
   CMAKE_ARGS
     -DCMAKE_INSTALL_PREFIX=${PIPER_INSTALL_DIR}
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
     -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-  BUILD_BYPRODUCTS ${PIPER_INSTALL_DIR}/libpiper.so
+    # Always use the vendored onnxruntime release instead of a system one, so
+    # the exported libraries are self-contained and reproducible
+    -DCMAKE_DISABLE_FIND_PACKAGE_onnxruntime=ON
+  BUILD_BYPRODUCTS ${PIPER_INSTALL_DIR}/lib/libpiper.so
   UPDATE_DISCONNECTED FALSE
 )
 
@@ -50,11 +59,9 @@ target_include_directories(piper_lib
     $<INSTALL_INTERFACE:include>
 )
 
-# libpiper.so is installed to the prefix root by upstream;
-# onnxruntime libs are installed to lib/
+# Since piper 1.7.0, libpiper.so and onnxruntime are installed to lib/
 target_link_directories(piper_lib
   INTERFACE
-    $<BUILD_INTERFACE:${PIPER_INSTALL_DIR}>
     $<BUILD_INTERFACE:${PIPER_INSTALL_DIR}/lib>
     $<INSTALL_INTERFACE:lib>
 )
@@ -69,9 +76,9 @@ target_link_libraries(piper_lib
 # 3) Install headers, data files, and shared libraries
 # -----------------------------------------------------------------------------
 
-# Install espeak-ng data
+# Install espeak-ng data (upstream installs it under share/)
 install(
-  DIRECTORY ${PIPER_INSTALL_DIR}/espeak-ng-data
+  DIRECTORY ${PIPER_INSTALL_DIR}/share/espeak-ng-data
   DESTINATION share/${PROJECT_NAME}/
 )
 
@@ -81,9 +88,9 @@ install(
   DESTINATION include
 )
 
-# Install libpiper shared library (upstream places it in the prefix root)
+# Install libpiper shared library (upstream installs it under lib/)
 install(
-  FILES ${PIPER_INSTALL_DIR}/libpiper.so
+  FILES ${PIPER_INSTALL_DIR}/lib/libpiper.so
   DESTINATION lib
 )
 
@@ -91,7 +98,7 @@ install(
 install(
   DIRECTORY ${PIPER_INSTALL_DIR}/lib/
   DESTINATION lib
-  FILES_MATCHING PATTERN "*.so*"
+  FILES_MATCHING PATTERN "libonnxruntime*"
 )
 
 # Install the INTERFACE target
