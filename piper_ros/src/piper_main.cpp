@@ -32,9 +32,28 @@ int main(int argc, char *argv[]) {
 
   rclcpp::init(argc, argv);
 
+  using CallbackReturn =
+      rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
   auto node = std::make_shared<PiperNode>();
-  node->configure();
-  node->activate();
+
+  CallbackReturn cb_return_code = CallbackReturn::FAILURE;
+
+  node->configure(cb_return_code);
+  if (cb_return_code != CallbackReturn::SUCCESS) {
+    RCLCPP_FATAL(rclcpp::get_logger("piper_main"),
+                 "Failed to configure piper_node");
+    rclcpp::shutdown();
+    return 1;
+  }
+
+  node->activate(cb_return_code);
+  if (cb_return_code != CallbackReturn::SUCCESS) {
+    RCLCPP_FATAL(rclcpp::get_logger("piper_main"),
+                 "Failed to activate piper_node");
+    rclcpp::shutdown();
+    return 1;
+  }
 
   rclcpp::executors::SingleThreadedExecutor executor;
   executor.add_node(node->get_node_base_interface());

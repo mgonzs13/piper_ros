@@ -27,10 +27,13 @@
 #include <rclcpp_action/rclcpp_action.hpp>
 #include <rclcpp_lifecycle/lifecycle_node.hpp>
 
+#include <atomic>
+#include <condition_variable>
 #include <memory>
 #include <mutex>
 #include <queue>
 #include <string>
+#include <thread>
 
 #include "audio_common_msgs/action/tts.hpp"
 #include "audio_common_msgs/msg/audio_stamped.hpp"
@@ -70,7 +73,8 @@ public:
   PiperNode();
 
   /**
-   * @brief Destructor. Frees piper synthesizer resources if still active.
+   * @brief Destructor. Stops the worker thread and frees piper
+   *        synthesizer resources if still active.
    */
   ~PiperNode() override;
 
@@ -102,8 +106,8 @@ public:
   /**
    * @brief Callback for deactivating the node.
    *
-   * Resets the publisher, action server, and frees the piper
-   * synthesizer.
+   * Stops the worker thread, aborts pending goals, resets the
+   * publisher and action server, and frees the piper synthesizer.
    *
    * @param state The current lifecycle state.
    * @return SUCCESS.
@@ -156,15 +160,15 @@ private:
 
   /** @brief FIFO queue of pending TTS goal handles. */
   std::queue<std::shared_ptr<GoalHandleTTS>> goal_queue_;
-  /** @brief Mutex protecting @ref goal_queue_ and @ref current_goal_handle_. */
-  std::recursive_mutex goal_queue_lock_;
-  /** @brief Handle for the TTS goal currently being executed. */
-  std::shared_ptr<GoalHandleTTS> current_goal_handle_;
+  /** @brief Mutex protecting @ref goal_queue_ and @ref worker_. */
+  std::mutex goal_queue_lock_;
+  /** @brief Signals @ref worker_ when a goal is queued or shutdown starts. */
+  std::condition_variable goal_queue_cv_;
+  /** @brief Set to true to make @ref worker_ stop executing goals. */
+  std::atomic<bool> stop_worker_{false};
+  /** @brief Worker thread executing TTS goals one at a time. */
+  std::thread worker_;
 
-  /** @brief Mutex serializing audio chunk publication. */
-  std::mutex pub_lock_;
-  /** @brief Rate limiter matching audio chunk / sample-rate cadence. */
-  std::unique_ptr<rclcpp::Rate> pub_rate;
   /** @brief Publisher for AudioStamped messages. */
   rclcpp::Publisher<audio_common_msgs::msg::AudioStamped>::SharedPtr
       player_pub_;
@@ -176,7 +180,7 @@ private:
    * @brief Handle a new TTS goal request.
    * @param uuid The unique identifier for the goal.
    * @param goal The goal message containing the text to synthesize.
-   * @return ACCEPT_AND_EXECUTE.
+   * @return ACCEPT_AND_EXECUTE, or REJECT if the text is empty.
    */
   rclcpp_action::GoalResponse
   handle_goal(const rclcpp_action::GoalUUID &uuid,
@@ -192,6 +196,9 @@ private:
 
   /**
    * @brief Handle an accepted TTS goal by queuing it for execution.
+   *
+   * If the node is stopping, the goal is aborted instead.
+   *
    * @param goal_handle The handle for the accepted goal.
    */
   void handle_accepted(const std::shared_ptr<GoalHandleTTS> goal_handle);
@@ -200,16 +207,28 @@ private:
    * @brief Execute the TTS synthesis and publish audio for a goal.
    *
    * Runs piper synthesis and publishes float32 audio chunks
-   * at the appropriate rate.
+   * at the appropriate rate. Called only from @ref worker_loop, so
+   * goals are always serialized.
    *
    * @param goal_handle The handle for the goal being executed.
    */
   void execute_callback(const std::shared_ptr<GoalHandleTTS> goal_handle);
 
   /**
-   * @brief Dequeue and start the next pending TTS goal, if any.
+   * @brief Main loop of @ref worker_.
+   *
+   * Waits for queued goals and executes them one at a time until
+   * @ref stop_worker_ is set.
    */
-  void run_next_goal();
+  void worker_loop();
+
+  /**
+   * @brief Stop @ref worker_, join it and abort all pending goals.
+   *
+   * Must be called before freeing the synthesizer or resetting the
+   * action server, otherwise the worker could use freed resources.
+   */
+  void stop_worker();
 };
 } // namespace piper_ros
 

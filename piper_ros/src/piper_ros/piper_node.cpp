@@ -21,7 +21,7 @@
 // SOFTWARE.
 
 #include <algorithm>
-#include <cmath>
+#include <filesystem>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -52,8 +52,7 @@ using std::placeholders::_1;
 using std::placeholders::_2;
 
 PiperNode::PiperNode()
-    : rclcpp_lifecycle::LifecycleNode("piper_node"), synth_(nullptr),
-      pub_rate(nullptr) {
+    : rclcpp_lifecycle::LifecycleNode("piper_node"), synth_(nullptr) {
 
   this->declare_parameter<int>("chunk", 512);
   this->declare_parameter<std::string>("frame_id", "");
@@ -90,11 +89,15 @@ PiperNode::PiperNode()
 }
 
 PiperNode::~PiperNode() {
+  this->stop_worker();
+
   if (this->synth_) {
     piper_free(this->synth_);
     this->synth_ = nullptr;
   }
 }
+
+namespace {
 
 std::string download_model(const std::string &repo_id,
                            const std::string &filename) {
@@ -103,14 +106,22 @@ std::string download_model(const std::string &repo_id,
     return "";
   }
 
-  auto result = huggingface_hub::hf_hub_download(repo_id, filename);
+  try {
+    auto result = huggingface_hub::hf_hub_download(repo_id, filename);
 
-  if (result.success) {
-    return result.path;
-  } else {
-    return "";
+    if (result.success && !result.path.empty()) {
+      return result.path;
+    }
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(rclcpp::get_logger("piper_node"),
+                 "Error downloading %s from %s: %s", filename.c_str(),
+                 repo_id.c_str(), e.what());
   }
+
+  return "";
 }
+
+} // namespace
 
 rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 PiperNode::on_configure(const rclcpp_lifecycle::State &) {
@@ -124,6 +135,13 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
 
   this->get_parameter("chunk", this->chunk_);
   this->get_parameter("frame_id", this->frame_id_);
+
+  if (this->chunk_ <= 0) {
+    RCLCPP_ERROR(get_logger(), "Invalid chunk size: %d (must be > 0)",
+                 this->chunk_);
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
+        CallbackReturn::FAILURE;
+  }
 
   this->get_parameter("model.repo", model_repo);
   this->get_parameter("model.filename", model_filename);
@@ -144,6 +162,17 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
     this->model_path_ = download_model(model_repo, model_filename);
   }
 
+  if (this->model_path_.empty() ||
+      !std::filesystem::exists(this->model_path_)) {
+    RCLCPP_ERROR(get_logger(),
+                 "Voice model not found (model.path='%s', repo='%s', "
+                 "filename='%s')",
+                 this->model_path_.c_str(), model_repo.c_str(),
+                 model_filename.c_str());
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
+        CallbackReturn::FAILURE;
+  }
+
   if (this->model_config_path_.empty()) {
 
     if (model_config_repo.empty()) {
@@ -156,6 +185,27 @@ PiperNode::on_configure(const rclcpp_lifecycle::State &) {
 
     this->model_config_path_ =
         download_model(model_config_repo, model_config_filename);
+  }
+
+  if (this->model_config_path_.empty()) {
+    // piper_create() falls back to "<model_path>.json" when no config path
+    // is given, so accept that file if it exists.
+    const std::string fallback_config_path = this->model_path_ + ".json";
+
+    if (std::filesystem::exists(fallback_config_path)) {
+      this->model_config_path_ = fallback_config_path;
+    }
+  }
+
+  if (this->model_config_path_.empty() ||
+      !std::filesystem::exists(this->model_config_path_)) {
+    RCLCPP_ERROR(get_logger(),
+                 "Voice config not found (model.config_path='%s', repo='%s', "
+                 "filename='%s')",
+                 this->model_config_path_.c_str(), model_config_repo.c_str(),
+                 model_config_filename.c_str());
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
+        CallbackReturn::FAILURE;
   }
 
   RCLCPP_INFO(get_logger(), "[%s] Configured", this->get_name());
@@ -176,8 +226,16 @@ PiperNode::on_activate(const rclcpp_lifecycle::State &) {
                                 ? nullptr
                                 : this->model_config_path_.c_str();
 
-  this->synth_ = piper_create(this->model_path_.c_str(), config_path,
-                              this->espeak_data_path_.c_str());
+  try {
+    this->synth_ = piper_create(this->model_path_.c_str(), config_path,
+                                this->espeak_data_path_.c_str());
+  } catch (const std::exception &e) {
+    RCLCPP_ERROR(this->get_logger(), "Failed to create piper synthesizer: %s",
+                 e.what());
+    this->synth_ = nullptr;
+    return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
+        CallbackReturn::FAILURE;
+  }
 
   if (!this->synth_) {
     RCLCPP_ERROR(this->get_logger(), "Failed to create piper synthesizer");
@@ -196,6 +254,14 @@ PiperNode::on_activate(const rclcpp_lifecycle::State &) {
       std::bind(&PiperNode::handle_cancel, this, _1),
       std::bind(&PiperNode::handle_accepted, this, _1));
 
+  // Worker thread that serializes goal execution
+  {
+    std::lock_guard<std::mutex> lock(this->goal_queue_lock_);
+    this->stop_worker_ = false;
+  }
+
+  this->worker_ = std::thread(&PiperNode::worker_loop, this);
+
   RCLCPP_INFO(get_logger(), "[%s] Activated", this->get_name());
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
@@ -206,6 +272,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 PiperNode::on_deactivate(const rclcpp_lifecycle::State &) {
 
   RCLCPP_INFO(get_logger(), "[%s] Deactivating...", this->get_name());
+
+  // Stop the worker before releasing any resource it may be using
+  this->stop_worker();
 
   this->player_pub_.reset();
   this->player_pub_ = nullptr;
@@ -228,6 +297,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 PiperNode::on_cleanup(const rclcpp_lifecycle::State &) {
 
   RCLCPP_INFO(get_logger(), "[%s] Cleaning up...", this->get_name());
+
+  this->stop_worker();
+
   RCLCPP_INFO(get_logger(), "[%s] Cleaned up", this->get_name());
 
   return rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::
@@ -238,6 +310,9 @@ rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn
 PiperNode::on_shutdown(const rclcpp_lifecycle::State &) {
 
   RCLCPP_INFO(get_logger(), "[%s] Shutting down...", this->get_name());
+
+  // Stop the worker before releasing any resource it may be using
+  this->stop_worker();
 
   this->player_pub_.reset();
   this->action_server_.reset();
@@ -257,7 +332,12 @@ rclcpp_action::GoalResponse
 PiperNode::handle_goal(const rclcpp_action::GoalUUID &uuid,
                        std::shared_ptr<const TTS::Goal> goal) {
   (void)uuid;
-  (void)goal;
+
+  if (goal->text.empty()) {
+    RCLCPP_WARN(this->get_logger(), "Rejected TTS goal with empty text");
+    return rclcpp_action::GoalResponse::REJECT;
+  }
+
   return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
 }
 
@@ -271,27 +351,103 @@ PiperNode::handle_cancel(const std::shared_ptr<GoalHandleTTS> goal_handle) {
 void PiperNode::handle_accepted(
     const std::shared_ptr<GoalHandleTTS> goal_handle) {
 
-  std::lock_guard<std::recursive_mutex> lock(this->goal_queue_lock_);
-  this->goal_queue_.push(goal_handle);
+  std::unique_lock<std::mutex> lock(this->goal_queue_lock_);
 
-  if (this->current_goal_handle_ == nullptr ||
-      !this->current_goal_handle_->is_active()) {
-    this->run_next_goal();
+  if (this->stop_worker_) {
+    // The node is deactivating/shutting down, so no new goal can be queued.
+    lock.unlock();
+
+    auto result = std::make_shared<TTS::Result>();
+    result->text = goal_handle->get_goal()->text;
+
+    try {
+      goal_handle->abort(result);
+    } catch (const std::exception &e) {
+      RCLCPP_WARN(this->get_logger(), "Failed to abort goal: %s", e.what());
+    }
+    return;
+  }
+
+  this->goal_queue_.push(goal_handle);
+  this->goal_queue_cv_.notify_one();
+}
+
+void PiperNode::worker_loop() {
+  while (true) {
+    std::shared_ptr<GoalHandleTTS> goal_handle;
+
+    {
+      std::unique_lock<std::mutex> lock(this->goal_queue_lock_);
+      this->goal_queue_cv_.wait(lock, [this] {
+        return this->stop_worker_.load() || !this->goal_queue_.empty();
+      });
+
+      if (this->stop_worker_) {
+        // Pending goals are aborted by stop_worker().
+        return;
+      }
+
+      goal_handle = this->goal_queue_.front();
+      this->goal_queue_.pop();
+    }
+
+    // A goal canceled while waiting in the queue must not be synthesized.
+    if (goal_handle->is_canceling()) {
+      auto result = std::make_shared<TTS::Result>();
+      result->text = goal_handle->get_goal()->text;
+
+      try {
+        goal_handle->canceled(result);
+      } catch (const std::exception &e) {
+        RCLCPP_WARN(this->get_logger(), "Failed to cancel goal: %s", e.what());
+      }
+      continue;
+    }
+
+    this->execute_callback(goal_handle);
   }
 }
 
-void PiperNode::run_next_goal() {
-  std::lock_guard<std::recursive_mutex> lock(this->goal_queue_lock_);
+void PiperNode::stop_worker() {
+  {
+    std::lock_guard<std::mutex> lock(this->goal_queue_lock_);
+    this->stop_worker_ = true;
+  }
+  this->goal_queue_cv_.notify_all();
 
-  if (!this->goal_queue_.empty()) {
-    this->current_goal_handle_ = this->goal_queue_.front();
-    this->goal_queue_.pop();
-    std::thread{std::bind(&PiperNode::execute_callback, this, _1),
-                this->current_goal_handle_}
-        .detach();
+  if (this->worker_.joinable()) {
+    this->worker_.join();
+  }
 
-  } else {
-    this->current_goal_handle_ = nullptr;
+  // Abort goals that were queued but never executed, otherwise their clients
+  // would wait forever.
+  std::queue<std::shared_ptr<GoalHandleTTS>> pending_goals;
+  {
+    std::lock_guard<std::mutex> lock(this->goal_queue_lock_);
+    std::swap(pending_goals, this->goal_queue_);
+  }
+
+  while (!pending_goals.empty()) {
+    auto goal_handle = pending_goals.front();
+    pending_goals.pop();
+
+    if (goal_handle == nullptr || !goal_handle->is_active()) {
+      continue;
+    }
+
+    auto result = std::make_shared<TTS::Result>();
+    result->text = goal_handle->get_goal()->text;
+
+    try {
+      if (goal_handle->is_canceling()) {
+        goal_handle->canceled(result);
+      } else {
+        goal_handle->abort(result);
+      }
+    } catch (const std::exception &e) {
+      RCLCPP_WARN(this->get_logger(), "Failed to abort pending goal: %s",
+                  e.what());
+    }
   }
 }
 
@@ -314,7 +470,9 @@ void PiperNode::execute_callback(
 
   // Generate audio using streaming API
   std::vector<float> audio_buffer;
-  int sample_rate = 22050; // default
+  int sample_rate = 0;
+  bool canceled = false;
+  bool stopped = false;
 
   try {
     int ret = piper_synthesize_start(this->synth_, text.c_str(), &options);
@@ -323,6 +481,16 @@ void PiperNode::execute_callback(
     }
 
     while (true) {
+      if (this->stop_worker_) {
+        stopped = true;
+        break;
+      }
+
+      if (goal_handle->is_canceling()) {
+        canceled = true;
+        break;
+      }
+
       piper_audio_chunk chunk{};
       ret = piper_synthesize_next(this->synth_, &chunk);
 
@@ -360,18 +528,31 @@ void PiperNode::execute_callback(
     RCLCPP_ERROR(this->get_logger(), "Error while generating audio: %s",
                  e.what());
     goal_handle->abort(result);
-    this->run_next_goal();
+    return;
+  }
+
+  if (canceled) {
+    goal_handle->canceled(result);
+    return;
+  }
+
+  if (stopped) {
+    goal_handle->abort(result);
+    return;
+  }
+
+  if (sample_rate <= 0) {
+    RCLCPP_ERROR(this->get_logger(), "Invalid sample rate: %d", sample_rate);
+    goal_handle->abort(result);
     return;
   }
 
   // Publish the synthesized audio only after synthesis has completed.
-  std::unique_lock<std::mutex> lock(this->pub_lock_);
-
   const std::chrono::nanoseconds period(
       static_cast<int64_t>(1e9 * static_cast<double>(this->chunk_) /
                            static_cast<double>(sample_rate)));
 
-  this->pub_rate = std::make_unique<rclcpp::Rate>(period);
+  rclcpp::Rate pub_rate(period);
 
   // Publish the audio data in chunks
   for (size_t i = 0; i < audio_buffer.size(); i += this->chunk_) {
@@ -390,7 +571,11 @@ void PiperNode::execute_callback(
 
     if (goal_handle->is_canceling()) {
       goal_handle->canceled(result);
-      this->run_next_goal();
+      return;
+    }
+
+    if (this->stop_worker_) {
+      goal_handle->abort(result);
       return;
     }
 
@@ -411,13 +596,24 @@ void PiperNode::execute_callback(
 
     // Do not sleep after the final chunk.
     if (i + data_size < audio_buffer.size()) {
-      this->pub_rate->sleep();
+      pub_rate.sleep();
     }
   }
 
-  goal_handle->succeed(result);
+  // A cancel request may race with the final chunk, in which case succeed()
+  // fails and the goal must be canceled instead.
+  try {
+    goal_handle->succeed(result);
+  } catch (const std::exception &e) {
+    RCLCPP_WARN(this->get_logger(), "Failed to succeed goal: %s", e.what());
 
-  // Start the next queued goal ONLY after the current goal has finished
-  // publishing its audio.
-  this->run_next_goal();
+    if (goal_handle->is_canceling()) {
+      try {
+        goal_handle->canceled(result);
+      } catch (const std::exception &cancel_error) {
+        RCLCPP_WARN(this->get_logger(), "Failed to cancel goal: %s",
+                    cancel_error.what());
+      }
+    }
+  }
 }

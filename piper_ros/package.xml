@@ -13,6 +13,7 @@
     <depend>rclcpp</depend>
     <depend>rclcpp_action</depend>
     <depend>rclcpp_lifecycle</depend>
+    <depend>ament_index_cpp</depend>
     <depend>audio_common_msgs</depend>
     <depend>piper_vendor</depend>
     <depend>piper_hfhub_vendor</depend>

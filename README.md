@@ -32,7 +32,7 @@ To run piper_ros follow the next commands:
 cd ~/ros2_ws/src
 git clone https://github.com/mgonzs13/piper_ros.git
 cd ~/ros2_ws
-vcs import src < src/whisper_ros/dependencies.repos
+vcs import src < src/piper_ros/dependencies.repos
 rosdep install --from-paths src --ignore-src -r -y
 colcon build
 ```
