@@ -37,6 +37,8 @@ rosdep install --from-paths src --ignore-src -r -y
 colcon build
 ```
 
+`piper_vendor` uses the ONNX Runtime provided by the ROS 2 distro (`onnxruntime_vendor`) on Humble, Jazzy, Kilted, Lyrical and Rolling. On distros where that package is not released (e.g. Iron), ONNX Runtime is vendored as before.
+
 ## Docker
 
 You can build the piper_ros docker:
