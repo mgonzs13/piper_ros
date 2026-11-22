@@ -1,0 +1,19 @@
+<map id="piper_ros::PiperNode" name="piper_ros::PiperNode">
+<area shape="rect" id="Node000001" title="ROS 2 Lifecycle Node for managing the Piper TTS system." alt="" coords="668,209,809,235"/>
+<area shape="rect" id="Node000002" title=" " alt="" coords="300,5,499,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="515,3,582,11,615,21,645,37,667,55,685,77,712,125,729,173,738,208,732,209,724,174,707,127,681,80,663,59,643,42,613,26,581,16,514,8"/>
+<area shape="rect" id="Node000003" title=" " alt="" coords="361,121,438,147"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="454,137,544,150,645,174,683,190,716,206,713,211,681,194,643,179,543,155,453,142"/>
+<area shape="rect" id="Node000004" title=" " alt="" coords="36,110,160,150"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="176,129,360,131,360,136,175,134"/>
+<area shape="rect" id="Node000005" title=" " alt="" coords="315,174,484,214"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="500,200,668,214,668,219,499,205"/>
+<area shape="rect" id="Node000006" title=" " alt="" coords="5,175,191,216"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="206,192,314,192,314,197,206,198"/>
+<area shape="rect" id="Node000007" title=" " alt="" coords="359,239,440,264"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="455,250,544,248,644,240,683,233,684,238,644,245,544,253,455,255"/>
+<area shape="rect" id="Node000008" title=" " alt="" coords="334,289,464,315"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="480,301,560,295,602,288,643,277,686,257,720,233,723,238,688,261,645,282,603,294,561,301,480,307"/>
+<area shape="rect" id="Node000009" title=" " alt="" coords="359,343,440,368"/>
+<area shape="poly" id="edge8_Node000001_Node000009" title=" " alt="" coords="455,358,498,359,547,356,596,346,643,328,672,308,696,282,728,234,733,237,700,285,675,312,645,333,598,351,547,361,498,364,455,364"/>
+</map>
